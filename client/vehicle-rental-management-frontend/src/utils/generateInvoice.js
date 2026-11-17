@@ -38,6 +38,7 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
           name: user?.name || parsed.name || 'Valued Customer',
           email: user?.email || parsed.email || 'N/A',
           phone: user?.phone || parsed.phone || 'N/A',
+          address: user?.address || parsed.address || '',
         };
       }
     } catch (e) {}
@@ -47,7 +48,10 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
     name: 'Valued Customer',
     email: 'N/A',
     phone: 'N/A',
+    address: '',
   };
+
+  const deliveryLocation = booking.deliveryAddress || user.address || 'Self Pickup / Counter';
 
   const invoiceNumber = `INV-${(booking.orderId || booking.paymentId || booking._id || '00000000').toString().slice(-8).toUpperCase()}`;
   const issueDate = new Date(booking.bookingDate || booking.createdAt || Date.now()).toLocaleDateString('en-IN', {
@@ -99,7 +103,7 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
   doc.line(14, 34, 196, 34);
 
   // --- 2-COLUMN MINIMAL METADATA GRID ---
-  // Left Column: Customer Details (Explicitly showing Name, Email, Phone)
+  // Left Column: Customer Details (Explicitly showing Name, Email, Phone, Delivery Address)
   const metaY = 42;
 
   doc.setFont('helvetica', 'bold');
@@ -113,10 +117,12 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
   doc.text(user.name || 'Valued Customer', 14, metaY + 6);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(`Email ID: ${user.email || 'N/A'}`, 14, metaY + 11);
-  doc.text(`Phone: ${user.phone || 'N/A'}`, 14, metaY + 16);
+  doc.text(`Phone: ${user.phone || 'N/A'}`, 14, metaY + 15.5);
+  const truncatedAddress = deliveryLocation.length > 45 ? deliveryLocation.substring(0, 42) + '...' : deliveryLocation;
+  doc.text(`Delivery: ${truncatedAddress}`, 14, metaY + 20);
 
   // Right Column: Transaction & Vehicle Identifiers
   doc.setFont('helvetica', 'bold');
@@ -130,33 +136,48 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
   doc.text(`${vehicle.make || ''} ${vehicle.name || 'Vehicle'} (${vehicle.regNumber || 'N/A'})`, 110, metaY + 6);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(`Period: ${issueDate} to ${returnDateStr} (${daysCount} day(s))`, 110, metaY + 11);
-  doc.text(`Payment ID: ${booking.paymentId || 'N/A'}`, 110, metaY + 16);
-  doc.text(`Order ID: ${booking.orderId || 'N/A'} | Status: PAID (${booking.paymentMethod || 'UPI'})`, 110, metaY + 21);
+  doc.text(`Payment ID: ${booking.paymentId || 'N/A'}`, 110, metaY + 15.5);
+  doc.text(`Order ID: ${booking.orderId || 'N/A'} | Status: PAID (${booking.paymentMethod || 'UPI'})`, 110, metaY + 20);
 
   // Divider before items table
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
-  doc.line(14, metaY + 27, 196, metaY + 27);
+  doc.line(14, metaY + 26, 196, metaY + 26);
+
+  // Calculate overdue charges if applicable
+  const overdueCharge = Number(booking.overdueFee || 0);
+  const grandTotal = totalAmount + overdueCharge;
+
+  const tableBody = [
+    [
+      `Vehicle Rental Service: ${vehicle.make || ''} ${vehicle.name || 'Vehicle'}\nRegistration No: ${vehicle.regNumber || 'N/A'} | Category: ${vehicle.type || 'Car'}`,
+      formatINR(dailyRate),
+      `${daysCount}`,
+      formatINR(baseAmount),
+    ],
+    ['Central GST (CGST @ 9%)', '-', '-', formatINR(cgst)],
+    ['State GST (SGST @ 9%)', '-', '-', formatINR(sgst)],
+  ];
+
+  if (overdueCharge > 0) {
+    tableBody.push([
+      'Overdue Charges (Returned past 24-hour grace period)',
+      '-',
+      '-',
+      formatINR(overdueCharge),
+    ]);
+  }
 
   // --- MINIMALIST ITEMIZATION TABLE ---
   autoTable(doc, {
-    startY: metaY + 31,
+    startY: metaY + 30,
     head: [['Description', 'Rate / Day', 'Days', 'Amount']],
-    body: [
-      [
-        `Vehicle Rental Service: ${vehicle.make || ''} ${vehicle.name || 'Vehicle'}\nRegistration No: ${vehicle.regNumber || 'N/A'} | Category: ${vehicle.type || 'Car'}`,
-        formatINR(dailyRate),
-        `${daysCount}`,
-        formatINR(baseAmount),
-      ],
-      ['Central GST (CGST @ 9%)', '-', '-', formatINR(cgst)],
-      ['State GST (SGST @ 9%)', '-', '-', formatINR(sgst)],
-    ],
+    body: tableBody,
     foot: [
-      ['Total Paid in Full', '', '', formatINR(totalAmount)],
+      ['Total Paid in Full', '', '', formatINR(grandTotal)],
     ],
     theme: 'plain',
     headStyles: {

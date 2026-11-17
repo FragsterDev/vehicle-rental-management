@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getMyRentals, returnVehicle } from '../services/api';
 import { generateInvoicePDF } from '../utils/generateInvoice';
+import { getOverdueDetails } from '../utils/overdueUtils';
 
 function MyRentals({ onReturnSuccess }) {
   const [rentals, setRentals] = useState([]);
@@ -90,9 +91,9 @@ function MyRentals({ onReturnSuccess }) {
                 <th>Vehicle</th>
                 <th>Reg Number</th>
                 <th>Booking Date</th>
-                <th>Return Date</th>
-                <th>Duration</th>
-                <th>Total Paid</th>
+                <th>Return Date & Overdue</th>
+                <th>Delivery Address</th>
+                <th>Total & Charges</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -100,14 +101,12 @@ function MyRentals({ onReturnSuccess }) {
             <tbody>
               {rentals.map((rental) => {
                 const vehicle = rental.vehicle || {};
-                const isOverdue =
-                  rental.status === 'overdue' ||
-                  (rental.status === 'active' && new Date() > new Date(rental.returnDate));
+                const overdueInfo = getOverdueDetails(rental, vehicle);
                 const isReturned = rental.status === 'returned';
-                const overdueDays = isOverdue ? getOverdueDays(rental.returnDate) : 0;
+                const { isOverdue, isPast24Hours, overdueDays, overdueCharges, dailyRate } = overdueInfo;
 
                 return (
-                  <tr key={rental._id} className={isOverdue ? 'row-overdue' : ''}>
+                  <tr key={rental._id} className={isOverdue && isPast24Hours ? 'row-overdue' : ''}>
                     <td>
                       <strong>{vehicle.make} {vehicle.name}</strong>
                       <span className="subtext">{vehicle.type}</span>
@@ -116,16 +115,31 @@ function MyRentals({ onReturnSuccess }) {
                     <td>{new Date(rental.bookingDate || rental.createdAt).toLocaleDateString()}</td>
                     <td>
                       <div>{new Date(rental.returnDate).toLocaleDateString()}</div>
-                      {isOverdue && (
-                        <span className="overdue-tag">
-                          {overdueDays > 0 ? `${overdueDays} day(s) late` : 'Past deadline'}
-                        </span>
+                      {isOverdue && !isReturned && (
+                        <>
+                          {isPast24Hours ? (
+                            <span className="overdue-tag">
+                              {overdueDays} day(s) late
+                            </span>
+                          ) : (
+                            <span className="grace-tag" title="Vehicle is past deadline but within the 24-hour grace period">
+                              Grace Period (0-24h)
+                            </span>
+                          )}
+                        </>
                       )}
                       {isReturned && rental.actualReturnDate && (
                         <span className="subtext">
-                          Returned on {new Date(rental.actualReturnDate).toLocaleDateString()}
+                          Returned {new Date(rental.actualReturnDate).toLocaleDateString()}
                         </span>
                       )}
+                    </td>
+                    <td style={{ maxWidth: '200px' }}>
+                      <div className="address-display-cell" title={rental.deliveryAddress || rental.user?.address || 'Self Pickup'}>
+                        <span className="address-text">
+                          {rental.deliveryAddress || rental.user?.address || 'Self Pickup / Counter'}
+                        </span>
+                      </div>
                     </td>
                     <td>
                       <strong>₹{rental.totalPrice?.toLocaleString('en-IN')}</strong>
@@ -133,11 +147,35 @@ function MyRentals({ onReturnSuccess }) {
                       <span className="payment-tag-paid">
                         Paid: {rental.paymentMethod || 'UPI'}
                       </span>
+
+                      {/* Display Overdue Charges if not returned within 24 hours of due date */}
+                      {isOverdue && !isReturned && isPast24Hours && (
+                        <div className="overdue-charge-callout">
+                          <span className="charge-title">Overdue Fee:</span>
+                          <span className="charge-amount">₹{overdueCharges?.toLocaleString('en-IN')}</span>
+                          <span className="charge-rate">({overdueDays}d late &times; ₹{dailyRate})</span>
+                        </div>
+                      )}
+
+                      {/* If within 24 hours grace period */}
+                      {isOverdue && !isReturned && !isPast24Hours && (
+                        <div className="grace-charge-callout">
+                          <span>Grace active: ₹0 late fee</span>
+                        </div>
+                      )}
+
+                      {/* If already returned with overdue charges */}
+                      {isReturned && rental.overdueFee > 0 && (
+                        <div className="overdue-charge-callout settled">
+                          <span className="charge-title">Overdue Fee:</span>
+                          <span className="charge-amount">₹{rental.overdueFee.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
                     </td>
                     <td>
-                      {isOverdue && (
-                        <span className="status-badge-inline status-overdue">
-                          OVERDUE
+                      {isOverdue && !isReturned && (
+                        <span className={`status-badge-inline ${isPast24Hours ? 'status-overdue' : 'status-grace'}`}>
+                          {isPast24Hours ? 'OVERDUE' : 'DUE (GRACE)'}
                         </span>
                       )}
                       {!isOverdue && !isReturned && (
@@ -163,7 +201,7 @@ function MyRentals({ onReturnSuccess }) {
                         </button>
                         {!isReturned ? (
                           <button
-                            className={`btn btn-outline-sm ${isOverdue ? 'btn-return-overdue' : ''}`}
+                            className={`btn btn-outline-sm ${isPast24Hours ? 'btn-return-overdue' : ''}`}
                             disabled={actionLoading === rental._id}
                             onClick={() => handleReturn(rental._id, `${vehicle.make} ${vehicle.name}`)}
                           >

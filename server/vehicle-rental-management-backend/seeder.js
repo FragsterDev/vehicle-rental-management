@@ -40,11 +40,16 @@ const seedData = async () => {
         name: 'System Admin',
         email: 'admin@rental.com',
         phone: '9876543210',
+        address: '100 Fleet Headquarters, Koramangala, Bengaluru, Karnataka 560034',
         password: adminPassword,
         role: 'admin',
       });
       console.log('Created default Admin user.');
     } else {
+      if (!adminUser.address) {
+        adminUser.address = '100 Fleet Headquarters, Koramangala, Bengaluru, Karnataka 560034';
+        await adminUser.save();
+      }
       console.log('Admin user already exists. Preserving.');
     }
 
@@ -55,11 +60,16 @@ const seedData = async () => {
         name: 'John Doe',
         email: 'john@example.com',
         phone: '9123456780',
+        address: '42 MG Road, Indiranagar, Bengaluru, Karnataka 560038',
         password: userPassword,
         role: 'user',
       });
       console.log('Created default Demo user.');
     } else {
+      if (!standardUser.address) {
+        standardUser.address = '42 MG Road, Indiranagar, Bengaluru, Karnataka 560038';
+        await standardUser.save();
+      }
       console.log('Demo user already exists. Preserving.');
     }
 

@@ -34,6 +34,15 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    deliveryAddress: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    overdueFee: {
+      type: Number,
+      default: 0,
+    },
     status: {
       type: String,
       enum: ['active', 'returned', 'overdue'],

@@ -52,12 +52,22 @@ export const deleteVehicle = async (id) => {
 };
 
 // BOOKING / RENTAL SERVICES
-export const rentVehicle = async ({ vehicleId, bookingDate, returnDate, days, paymentMethod, paymentId, orderId }) => {
+export const rentVehicle = async ({
+  vehicleId,
+  bookingDate,
+  returnDate,
+  days,
+  deliveryAddress,
+  paymentMethod,
+  paymentId,
+  orderId,
+}) => {
   const response = await api.post('/bookings', {
     vehicleId,
     bookingDate,
     returnDate,
     days,
+    deliveryAddress,
     paymentMethod,
     paymentId,
     orderId,

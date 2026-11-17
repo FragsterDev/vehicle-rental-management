@@ -2,11 +2,15 @@ const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Vehicle = require('../models/Vehicle');
+const User = require('../models/User');
 const { verifyToken, verifyAdmin } = require('../middleware/auth');
 
 // Helper function to automatically mark bookings as 'overdue' if returnDate has passed
+// and calculate overdue charges if vehicle is not returned within 24 hours of returnDate
 const updateOverdueBookings = async () => {
   const now = new Date();
+
+  // 1. Mark active bookings where returnDate < now as 'overdue'
   await Booking.updateMany(
     {
       status: 'active',
@@ -16,13 +20,37 @@ const updateOverdueBookings = async () => {
       $set: { status: 'overdue' },
     }
   );
+
+  // 2. Compute overdue charges for overdue bookings
+  const overdueBookings = await Booking.find({ status: 'overdue' }).populate('vehicle');
+  for (const b of overdueBookings) {
+    const returnTime = new Date(b.returnDate).getTime();
+    const gracePeriodMs = 24 * 60 * 60 * 1000; // 24-hour grace period
+    const diffMs = now.getTime() - returnTime;
+
+    // Apply overdue charges only if not returned within 24 hours of due date
+    if (diffMs > gracePeriodMs) {
+      const overdueDays = Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+      const dailyRate = b.vehicle?.pricePerDay || (b.totalPrice && b.days ? Math.round(b.totalPrice / b.days) : 1000);
+      const computedFee = overdueDays * dailyRate;
+      if (b.overdueFee !== computedFee) {
+        b.overdueFee = computedFee;
+        await b.save();
+      }
+    } else {
+      if (b.overdueFee !== 0) {
+        b.overdueFee = 0;
+        await b.save();
+      }
+    }
+  }
 };
 
 // 1. RENT A VEHICLE (USER)
 // Route: POST /api/bookings
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { vehicleId, bookingDate, returnDate, days, paymentMethod, paymentId, orderId } = req.body;
+    const { vehicleId, bookingDate, returnDate, days, deliveryAddress, paymentMethod, paymentId, orderId } = req.body;
 
     if (!vehicleId) {
       return res.status(400).json({
@@ -70,6 +98,15 @@ router.post('/', verifyToken, async (req, res) => {
     const isPastDue = end < new Date();
     const initialStatus = isPastDue ? 'overdue' : 'active';
 
+    // Resolve delivery address: from body or user profile
+    let finalDeliveryAddress = (deliveryAddress || '').trim();
+    if (!finalDeliveryAddress) {
+      const userDoc = await User.findById(req.user.id);
+      if (userDoc && userDoc.address) {
+        finalDeliveryAddress = userDoc.address;
+      }
+    }
+
     // Generate simulated payment credentials if not provided
     const finalPaymentId = paymentId || `pay_sim_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
     const finalOrderId = orderId || `order_sim_${Date.now()}`;
@@ -82,6 +119,8 @@ router.post('/', verifyToken, async (req, res) => {
       returnDate: end,
       days: rentalDays,
       totalPrice,
+      deliveryAddress: finalDeliveryAddress,
+      overdueFee: 0,
       status: initialStatus,
       paymentStatus: 'paid',
       paymentMethod: finalPaymentMethod,
@@ -97,7 +136,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     const populatedBooking = await Booking.findById(booking._id)
       .populate('vehicle')
-      .populate('user', 'name email phone');
+      .populate('user', 'name email phone address');
 
     res.status(201).json({
       success: true,
@@ -118,7 +157,7 @@ router.get('/my-rentals', verifyToken, async (req, res) => {
 
     const bookings = await Booking.find({ user: req.user.id })
       .populate('vehicle')
-      .populate('user', 'name email phone')
+      .populate('user', 'name email phone address')
       .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, count: bookings.length, data: bookings });
@@ -136,7 +175,7 @@ router.get('/', verifyToken, verifyAdmin, async (req, res) => {
 
     const bookings = await Booking.find()
       .populate('vehicle')
-      .populate('user', 'name email phone')
+      .populate('user', 'name email phone address')
       .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, count: bookings.length, data: bookings });
@@ -169,9 +208,24 @@ router.patch('/:id/return', verifyToken, async (req, res) => {
       });
     }
 
+    // Calculate final overdueFee if vehicle is returned late
+    const now = new Date();
+    const returnTime = new Date(booking.returnDate).getTime();
+    const gracePeriodMs = 24 * 60 * 60 * 1000;
+    const diffMs = now.getTime() - returnTime;
+
+    let finalOverdueFee = 0;
+    if (diffMs > gracePeriodMs) {
+      const overdueDays = Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+      const vehicle = await Vehicle.findById(booking.vehicle);
+      const dailyRate = vehicle?.pricePerDay || (booking.totalPrice && booking.days ? Math.round(booking.totalPrice / booking.days) : 1000);
+      finalOverdueFee = overdueDays * dailyRate;
+    }
+
     // Mark as returned and record actual return date
     booking.status = 'returned';
-    booking.actualReturnDate = new Date();
+    booking.actualReturnDate = now;
+    booking.overdueFee = finalOverdueFee;
     await booking.save();
 
     // Mark vehicle available in fleet again
@@ -183,7 +237,9 @@ router.patch('/:id/return', verifyToken, async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Vehicle returned successfully!',
+      message: finalOverdueFee > 0
+        ? `Vehicle returned. Overdue charge of ₹${finalOverdueFee.toLocaleString('en-IN')} applied (returned past 24h grace period).`
+        : 'Vehicle returned successfully!',
       data: booking,
     });
   } catch (error) {

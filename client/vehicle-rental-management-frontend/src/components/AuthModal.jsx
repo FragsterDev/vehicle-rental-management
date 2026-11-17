@@ -7,6 +7,7 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     name: '',
     email: '',
     phone: '',
+    address: '',
     password: '',
   });
   const [error, setError] = useState('');
@@ -127,6 +128,19 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   name="phone"
                   placeholder="e.g. 9876543210"
                   value={formData.phone}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="auth-address">Delivery Address</label>
+                <input
+                  type="text"
+                  id="auth-address"
+                  name="address"
+                  placeholder="e.g. 42 MG Road, Indiranagar, Bengaluru"
+                  value={formData.address}
                   onChange={handleChange}
                   required
                 />

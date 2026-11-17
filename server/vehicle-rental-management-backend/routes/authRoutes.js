@@ -23,7 +23,7 @@ const generateToken = (user) => {
 // Route: POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, phone, password, role } = req.body;
+    const { name, email, phone, address, password, role } = req.body;
 
     // Validate inputs
     if (!name || !email || !phone || !password) {
@@ -51,6 +51,7 @@ router.post('/register', async (req, res) => {
       name,
       email: email.toLowerCase(),
       phone,
+      address: address || '',
       password: hashedPassword,
       role: role === 'admin' ? 'admin' : 'user', // default to 'user'
     });
@@ -67,6 +68,7 @@ router.post('/register', async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         phone: newUser.phone,
+        address: newUser.address,
         role: newUser.role,
       },
     });
@@ -119,6 +121,7 @@ router.post('/login', async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
+        address: user.address || '',
         role: user.role,
       },
     });

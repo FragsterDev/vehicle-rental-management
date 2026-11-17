@@ -14,6 +14,14 @@ function RentModal({ isOpen, vehicle, currentUser, onClose, onRentSuccess, onOpe
   const [step, setStep] = useState('dates');
   const [bookingDate, setBookingDate] = useState(todayStr);
   const [returnDate, setReturnDate] = useState(defaultReturnStr);
+  const [deliveryAddress, setDeliveryAddress] = useState(currentUser?.address || '');
+
+  // Keep deliveryAddress synchronized if currentUser loads/changes
+  React.useEffect(() => {
+    if (currentUser?.address && !deliveryAddress) {
+      setDeliveryAddress(currentUser.address);
+    }
+  }, [currentUser]);
 
   // Payment states
   const [paymentMethod, setPaymentMethod] = useState('UPI'); // 'UPI' | 'Card' | 'NetBanking'
@@ -86,11 +94,14 @@ function RentModal({ isOpen, vehicle, currentUser, onClose, onRentSuccess, onOpe
       if (paymentMethod === 'Card') methodLabel = `Card (ends in ${cardNumber.slice(-4) || '1092'})`;
       if (paymentMethod === 'NetBanking') methodLabel = `Net Banking (${selectedBank})`;
 
+      const finalAddress = (deliveryAddress || '').trim() || currentUser?.address || 'Self Pickup / Counter';
+
       const res = await rentVehicle({
         vehicleId: vehicle._id,
         bookingDate,
         returnDate,
         days,
+        deliveryAddress: finalAddress,
         paymentMethod: methodLabel,
         paymentId: simPaymentId,
         orderId: simOrderId,
@@ -100,6 +111,7 @@ function RentModal({ isOpen, vehicle, currentUser, onClose, onRentSuccess, onOpe
         ...res.data,
         paymentId: simPaymentId,
         paymentMethod: methodLabel,
+        deliveryAddress: finalAddress,
         totalPrice,
       });
       setStep('success');
@@ -180,6 +192,32 @@ function RentModal({ isOpen, vehicle, currentUser, onClose, onRentSuccess, onOpe
                     required
                   />
                 </div>
+              </div>
+
+              {/* Delivery Address Field */}
+              <div className="form-group" style={{ marginTop: '0.25rem' }}>
+                <label htmlFor="deliveryAddress">
+                  Vehicle Delivery Address *
+                </label>
+                <input
+                  type="text"
+                  id="deliveryAddress"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="e.g. 42 MG Road, Indiranagar, Bengaluru"
+                  required
+                />
+                <span className="field-hint" style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '0.25rem' }}>
+                  The admin will arrange doorstep vehicle delivery to this location.
+                </span>
+              </div>
+
+              {/* 24-Hour Overdue Grace Period Notice */}
+              <div className="overdue-policy-notice">
+                <span className="policy-tag">Return Policy</span>
+                <span className="policy-desc">
+                  Vehicles returned within 24 hours of the due date incur no penalty. If not returned within 24 hours, overdue charges of ₹{vehicle.pricePerDay?.toLocaleString('en-IN')}/day apply for every overdue day.
+                </span>
               </div>
 
               <div className="rental-cost-breakdown">
@@ -410,6 +448,10 @@ function RentModal({ isOpen, vehicle, currentUser, onClose, onRentSuccess, onOpe
                 <span className="receipt-val">
                   {new Date(completedBooking.bookingDate).toLocaleDateString()} to {new Date(completedBooking.returnDate).toLocaleDateString()} ({days} days)
                 </span>
+              </div>
+              <div className="receipt-row">
+                <span className="receipt-label">Delivery To:</span>
+                <span className="receipt-val">{completedBooking.deliveryAddress || 'Address on record'}</span>
               </div>
               <div className="receipt-row">
                 <span className="receipt-label">Payment Status:</span>

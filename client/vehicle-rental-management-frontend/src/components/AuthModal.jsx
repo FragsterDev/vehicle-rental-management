@@ -116,8 +116,72 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     return { isValid, newErrors };
   };
 
+  // Keystroke blockers to prevent typing disallowed special characters
+  const handlePhoneKeyDown = (e) => {
+    if (
+      ['Backspace', 'Tab', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key) ||
+      e.ctrlKey || e.metaKey
+    ) {
+      return;
+    }
+    // Block anything that is not a numeric digit 0-9
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleNameKeyDown = (e) => {
+    if (
+      ['Backspace', 'Tab', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' '].includes(e.key) ||
+      e.ctrlKey || e.metaKey
+    ) {
+      return;
+    }
+    // Block numbers and special symbols (allow only letters, hyphens, and apostrophes)
+    if (!/^[a-zA-Z'-]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleEmailKeyDown = (e) => {
+    // Disallow spaces and illegal symbols on keystroke
+    if (
+      e.key === ' ' ||
+      ['<', '>', '"', ':', '/', '\\', '|', '?', '*', '!', '$', '#', '^', '&', '(', ')', '=', '~', '`', ';', '{', '}'].includes(e.key)
+    ) {
+      e.preventDefault();
+    }
+  };
+
+  const handleAddressKeyDown = (e) => {
+    // Disallow potential code/script injection symbols
+    if (['<', '>', '{', '}', '$', '^', '*', '~', '`'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let { value } = e.target;
+
+    // Strict input filtering against unwanted special characters
+    if (name === 'phone') {
+      // Disallow all non-digit characters and cap at 10 digits
+      value = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'name') {
+      // Only allow letters, spaces, apostrophes and hyphens
+      value = value.replace(/[^a-zA-Z\s'-]/g, '').slice(0, 50);
+    } else if (name === 'email') {
+      // Disallow spaces and illegal symbols in email
+      value = value.replace(/[^\w.@+_%-]/g, '').toLowerCase().slice(0, 80);
+    } else if (name === 'address') {
+      // Disallow potentially harmful or invalid symbols like < > { } $ ^ * ~
+      value = value.replace(/[<>{}$^*~`]/g, '').slice(0, 200);
+    } else if (name === 'password' || name === 'confirmPassword') {
+      // Disallow invisible control characters
+      value = value.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, 128);
+    }
+
     const updatedData = { ...formData, [name]: value };
     setFormData(updatedData);
 
@@ -278,12 +342,14 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   type="text"
                   id="auth-name"
                   name="name"
-                  placeholder="e.g. John Doe"
+                  placeholder="Letters only (e.g. John Doe)"
                   value={formData.name}
                   onChange={handleChange}
+                  onKeyDown={handleNameKeyDown}
                   onBlur={handleBlur}
                   className={errors.name ? 'input-error' : ''}
                   autoComplete="name"
+                  maxLength={50}
                 />
                 {errors.name && <span className="field-error-text">{errors.name}</span>}
               </div>
@@ -292,25 +358,29 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label htmlFor="auth-phone">Mobile Phone Number *</label>
-                  <span className="field-counter" style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                    10 digits
+                  <span className="field-counter" style={{ fontSize: '0.72rem', color: formData.phone.length === 10 ? '#15803d' : '#64748b' }}>
+                    {formData.phone.length}/10 digits
                   </span>
                 </div>
                 <input
                   type="tel"
                   id="auth-phone"
                   name="phone"
-                  placeholder="e.g. 9876543210"
+                  placeholder="10 digits only (e.g. 9876543210)"
                   value={formData.phone}
                   onChange={handleChange}
+                  onKeyDown={handlePhoneKeyDown}
                   onBlur={handleBlur}
                   className={errors.phone ? 'input-error' : ''}
                   autoComplete="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                 />
                 {errors.phone ? (
                   <span className="field-error-text">{errors.phone}</span>
                 ) : (
-                  <span className="field-hint-text">Used for delivery dispatch & order confirmations.</span>
+                  <span className="field-hint-text">Digits only (0-9). Special characters are blocked.</span>
                 )}
               </div>
 
@@ -324,9 +394,11 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
                   placeholder="e.g. 42 MG Road, Indiranagar, Bengaluru, Karnataka 560038"
                   value={formData.address}
                   onChange={handleChange}
+                  onKeyDown={handleAddressKeyDown}
                   onBlur={handleBlur}
                   className={errors.address ? 'input-error' : ''}
                   autoComplete="street-address"
+                  maxLength={200}
                 />
                 {errors.address ? (
                   <span className="field-error-text">{errors.address}</span>
@@ -347,9 +419,11 @@ function AuthModal({ isOpen, onClose, onAuthSuccess }) {
               placeholder="e.g. user@domain.com"
               value={formData.email}
               onChange={handleChange}
+              onKeyDown={handleEmailKeyDown}
               onBlur={handleBlur}
               className={errors.email ? 'input-error' : ''}
               autoComplete="email"
+              maxLength={80}
             />
             {errors.email && <span className="field-error-text">{errors.email}</span>}
           </div>

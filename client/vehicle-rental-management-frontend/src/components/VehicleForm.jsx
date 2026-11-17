@@ -42,14 +42,53 @@ function VehicleForm({ isOpen, onClose, onSaveVehicle, vehicleToEdit = null }) {
 
   if (!isOpen) return null;
 
+  const handleDigitsKeyDown = (e) => {
+    if (
+      ['Backspace', 'Tab', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key) ||
+      e.ctrlKey || e.metaKey
+    ) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleRegKeyDown = (e) => {
+    if (
+      ['Backspace', 'Tab', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', '-'].includes(e.key) ||
+      e.ctrlKey || e.metaKey
+    ) {
+      return;
+    }
+    if (!/^[a-zA-Z0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let { value } = e.target;
+
     if (name === 'image') {
       setPreviewError(false);
+    } else if (name === 'regNumber') {
+      // Disallow special characters; only uppercase letters, numbers, and hyphens
+      value = value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+    } else if (name === 'pricePerDay') {
+      // Only digits allowed
+      value = value.replace(/\D/g, '').slice(0, 7);
+    } else if (name === 'seatingCapacity') {
+      // Only digits allowed, max 2 digits
+      value = value.replace(/\D/g, '').slice(0, 2);
+    } else if (name === 'make' || name === 'name') {
+      // Disallow special symbols
+      value = value.replace(/[^a-zA-Z0-9\s.-]/g, '').slice(0, 40);
     }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'regNumber' ? value.toUpperCase() : value,
+      [name]: value,
     }));
   };
 
@@ -139,6 +178,8 @@ function VehicleForm({ isOpen, onClose, onSaveVehicle, vehicleToEdit = null }) {
                 placeholder="e.g. KA-01-AB-1001"
                 value={formData.regNumber}
                 onChange={handleChange}
+                onKeyDown={handleRegKeyDown}
+                maxLength={16}
                 required
               />
             </div>
@@ -164,8 +205,10 @@ function VehicleForm({ isOpen, onClose, onSaveVehicle, vehicleToEdit = null }) {
                 name="pricePerDay"
                 placeholder="1500"
                 min="1"
+                max="999999"
                 value={formData.pricePerDay}
                 onChange={handleChange}
+                onKeyDown={handleDigitsKeyDown}
                 required
               />
             </div>
@@ -192,6 +235,7 @@ function VehicleForm({ isOpen, onClose, onSaveVehicle, vehicleToEdit = null }) {
                 max="50"
                 value={formData.seatingCapacity}
                 onChange={handleChange}
+                onKeyDown={handleDigitsKeyDown}
               />
             </div>
 

@@ -33,6 +33,29 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address.',
+      });
+    }
+
+    const cleanPhone = phone.replace(/[\s\-\(\)\+]/g, '').replace(/^91/, '');
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number must be a valid 10-digit mobile number.',
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long.',
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {

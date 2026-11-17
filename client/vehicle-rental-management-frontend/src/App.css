@@ -1152,6 +1152,58 @@ body {
   border-color: var(--primary);
 }
 
+/* FORM VALIDATION STYLES */
+.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fffbfb;
+}
+
+.input-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 1px #dc2626;
+}
+
+.field-error-text {
+  font-size: 0.78rem;
+  color: #dc2626;
+  margin-top: 0.2rem;
+  display: block;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+}
+
+.field-hint-text {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+  display: block;
+}
+
+.btn-toggle-password-inline {
+  background: none;
+  border: none;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.btn-toggle-password-inline:hover {
+  color: var(--text-main);
+  background-color: #f1f5f9;
+}
+
+.password-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrap input {
+  width: 100%;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

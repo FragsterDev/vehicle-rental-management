@@ -70,6 +70,10 @@ function RentModal({ isOpen, vehicle, currentUser, onClose, onRentSuccess, onOpe
       setError('Return date must be at least 1 day after the booking date.');
       return;
     }
+    if (!deliveryAddress || deliveryAddress.trim().length < 8) {
+      setError('Please provide a complete delivery address with street, area, and city (min 8 characters).');
+      return;
+    }
     setError('');
     setStep('payment');
   };

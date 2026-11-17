@@ -9,7 +9,14 @@ const CATEGORY_FALLBACKS = {
   Van: 'https://images.unsplash.com/photo-1527786356703-4b100091cd2c?auto=format&fit=crop&w=600&q=80',
 };
 
-function VehicleCard({ vehicle, currentUser, onSelectRent, onDeleteVehicle }) {
+function VehicleCard({
+  vehicle,
+  currentUser,
+  onSelectRent,
+  onDeleteVehicle,
+  onEditVehicle,
+  onToggleAvailability,
+}) {
   const { _id, make, name, regNumber, type, pricePerDay, isAvailable, image, fuelType, seatingCapacity, description } = vehicle;
 
   const getFallback = (vehicleType) => CATEGORY_FALLBACKS[vehicleType] || CATEGORY_FALLBACKS.Car;
@@ -81,18 +88,37 @@ function VehicleCard({ vehicle, currentUser, onSelectRent, onDeleteVehicle }) {
             </button>
           ) : (
             <button className="btn btn-disabled btn-full" disabled>
-              Currently Rented
+              Unavailable
             </button>
           )}
 
           {isAdmin && (
-            <button
-              className="btn btn-danger-sm"
-              onClick={() => onDeleteVehicle(_id, `${make} ${name}`)}
-              title="Delete Vehicle"
-            >
-              Delete
-            </button>
+            <div className="admin-actions-bar">
+              <button
+                type="button"
+                className={`btn btn-sm ${isAvailable ? 'btn-toggle-unavail' : 'btn-toggle-avail'}`}
+                onClick={() => onToggleAvailability && onToggleAvailability(_id)}
+                title={isAvailable ? 'Mark vehicle as Unavailable for rental' : 'Mark vehicle as Available for rental'}
+              >
+                {isAvailable ? 'Set Unavailable' : 'Set Available'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-sm"
+                onClick={() => onEditVehicle && onEditVehicle(vehicle)}
+                title="Edit vehicle details"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger-sm"
+                onClick={() => onDeleteVehicle(_id, `${make} ${name}`)}
+                title="Delete Vehicle"
+              >
+                Delete
+              </button>
+            </div>
           )}
         </div>
       </div>

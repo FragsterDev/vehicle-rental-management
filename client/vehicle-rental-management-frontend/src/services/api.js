@@ -46,6 +46,16 @@ export const addVehicle = async (vehicleData) => {
   return response.data.data;
 };
 
+export const updateVehicle = async (id, vehicleData) => {
+  const response = await api.put(`/vehicles/${id}`, vehicleData);
+  return response.data.data;
+};
+
+export const toggleVehicleAvailability = async (id) => {
+  const response = await api.patch(`/vehicles/${id}/toggle-availability`);
+  return response.data.data;
+};
+
 export const deleteVehicle = async (id) => {
   const response = await api.delete(`/vehicles/${id}`);
   return response.data;

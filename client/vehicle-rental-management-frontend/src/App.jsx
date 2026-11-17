@@ -7,7 +7,7 @@ import RentModal from './components/RentModal';
 import FilterBar from './components/FilterBar';
 import MyRentals from './components/MyRentals';
 import AllBookings from './components/AllBookings';
-import { getVehicles, addVehicle, deleteVehicle } from './services/api';
+import { getVehicles, addVehicle, updateVehicle, toggleVehicleAvailability, deleteVehicle } from './services/api';
 import './App.css';
 
 function App() {
@@ -30,6 +30,7 @@ function App() {
   // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
+  const [vehicleToEdit, setVehicleToEdit] = useState(null);
   const [rentingVehicle, setRentingVehicle] = useState(null);
 
   // Filter States
@@ -79,11 +80,37 @@ function App() {
     showAlert('Signed out successfully.', 'info');
   };
 
-  // Add Vehicle (Admin)
-  const handleAddVehicle = async (vehicleData) => {
-    const created = await addVehicle(vehicleData);
-    setVehicles((prev) => [created, ...prev]);
-    showAlert(`Added ${created.make} ${created.name} (${created.regNumber}) to fleet.`);
+  // Add / Edit Vehicle (Admin)
+  const handleSaveVehicle = async (vehicleData, editId = null) => {
+    if (editId) {
+      const updated = await updateVehicle(editId, vehicleData);
+      setVehicles((prev) => prev.map((v) => (v._id === editId ? updated : v)));
+      showAlert(`Updated ${updated.make} ${updated.name} successfully.`);
+    } else {
+      const created = await addVehicle(vehicleData);
+      setVehicles((prev) => [created, ...prev]);
+      showAlert(`Added ${created.make} ${created.name} (${created.regNumber}) to fleet.`);
+    }
+    setVehicleToEdit(null);
+  };
+
+  // Toggle Availability (Admin)
+  const handleToggleAvailability = async (id) => {
+    try {
+      const updated = await toggleVehicleAvailability(id);
+      setVehicles((prev) => prev.map((v) => (v._id === id ? updated : v)));
+      showAlert(
+        `${updated.make} ${updated.name} is now ${updated.isAvailable ? 'available' : 'unavailable'} for rental.`
+      );
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Failed to update vehicle availability.', 'error');
+    }
+  };
+
+  // Open Edit Modal
+  const handleEditVehicle = (vehicle) => {
+    setVehicleToEdit(vehicle);
+    setIsAddVehicleOpen(true);
   };
 
   // Delete Vehicle (Admin)
@@ -142,7 +169,10 @@ function App() {
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
-        onOpenAddForm={() => setIsAddVehicleOpen(true)}
+        onOpenAddForm={() => {
+          setVehicleToEdit(null);
+          setIsAddVehicleOpen(true);
+        }}
       />
 
       <main className="main-content">
@@ -204,6 +234,8 @@ function App() {
                         currentUser={currentUser}
                         onSelectRent={handleSelectRent}
                         onDeleteVehicle={handleDeleteVehicle}
+                        onEditVehicle={handleEditVehicle}
+                        onToggleAvailability={handleToggleAvailability}
                       />
                     ))}
                   </div>
@@ -246,11 +278,15 @@ function App() {
         onAuthSuccess={handleAuthSuccess}
       />
 
-      {/* Add Vehicle Modal (Admin Only) */}
+      {/* Add / Edit Vehicle Modal (Admin Only) */}
       <VehicleForm
         isOpen={isAddVehicleOpen}
-        onClose={() => setIsAddVehicleOpen(false)}
-        onAddVehicle={handleAddVehicle}
+        onClose={() => {
+          setIsAddVehicleOpen(false);
+          setVehicleToEdit(null);
+        }}
+        onSaveVehicle={handleSaveVehicle}
+        vehicleToEdit={vehicleToEdit}
       />
 
       {/* Rent Vehicle Modal */}

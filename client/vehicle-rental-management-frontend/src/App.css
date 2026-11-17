@@ -518,8 +518,51 @@ body {
 
 .card-actions {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
   margin-top: auto;
+}
+
+.admin-actions-bar {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+.admin-actions-bar .btn,
+.admin-actions-bar .btn-sm,
+.admin-actions-bar .btn-outline-sm,
+.admin-actions-bar .btn-danger-sm {
+  flex: 1;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.btn-toggle-unavail {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+  font-weight: 600;
+}
+
+.btn-toggle-unavail:hover {
+  background-color: #ffedd5;
+  border-color: #fb923c;
+}
+
+.btn-toggle-avail {
+  background-color: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-weight: 600;
+}
+
+.btn-toggle-avail:hover {
+  background-color: #dcfce7;
+  border-color: #4ade80;
 }
 
 /* SECTION & TABLES (RENTALS & BOOKINGS) */

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-function VehicleForm({ isOpen, onClose, onAddVehicle }) {
+function VehicleForm({ isOpen, onClose, onSaveVehicle, vehicleToEdit = null }) {
   const initialFormState = {
     make: '',
     name: '',
@@ -9,6 +9,7 @@ function VehicleForm({ isOpen, onClose, onAddVehicle }) {
     pricePerDay: '',
     fuelType: 'Petrol',
     seatingCapacity: 4,
+    isAvailable: true,
     image: '',
     description: '',
   };
@@ -17,6 +18,27 @@ function VehicleForm({ isOpen, onClose, onAddVehicle }) {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewError, setPreviewError] = useState(false);
+
+  useEffect(() => {
+    if (vehicleToEdit) {
+      setFormData({
+        make: vehicleToEdit.make || '',
+        name: vehicleToEdit.name || '',
+        regNumber: vehicleToEdit.regNumber || '',
+        type: vehicleToEdit.type || 'Car',
+        pricePerDay: vehicleToEdit.pricePerDay || '',
+        fuelType: vehicleToEdit.fuelType || 'Petrol',
+        seatingCapacity: vehicleToEdit.seatingCapacity || 4,
+        isAvailable: vehicleToEdit.isAvailable !== false,
+        image: vehicleToEdit.image || '',
+        description: vehicleToEdit.description || '',
+      });
+    } else {
+      setFormData(initialFormState);
+    }
+    setError('');
+    setPreviewError(false);
+  }, [vehicleToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -46,17 +68,21 @@ function VehicleForm({ isOpen, onClose, onAddVehicle }) {
 
     try {
       setIsSubmitting(true);
-      await onAddVehicle({
-        ...formData,
-        image: formData.image.trim(),
-        pricePerDay: Number(formData.pricePerDay),
-        seatingCapacity: Number(formData.seatingCapacity),
-      });
+      await onSaveVehicle(
+        {
+          ...formData,
+          image: formData.image.trim(),
+          pricePerDay: Number(formData.pricePerDay),
+          seatingCapacity: Number(formData.seatingCapacity),
+          isAvailable: formData.isAvailable,
+        },
+        vehicleToEdit?._id
+      );
       setFormData(initialFormState);
       setPreviewError(false);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add vehicle. Please try again.');
+      setError(err.response?.data?.message || `Failed to ${vehicleToEdit ? 'update' : 'add'} vehicle. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -66,7 +92,7 @@ function VehicleForm({ isOpen, onClose, onAddVehicle }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add New Vehicle</h2>
+          <h2>{vehicleToEdit ? `Edit Vehicle — ${vehicleToEdit.make} ${vehicleToEdit.name}` : 'Add New Vehicle'}</h2>
           <button className="btn-close" onClick={onClose} aria-label="Close">
             &times;
           </button>
@@ -204,6 +230,22 @@ function VehicleForm({ isOpen, onClose, onAddVehicle }) {
           )}
 
           <div className="form-group">
+            <label htmlFor="isAvailable">Rental Availability Status</label>
+            <select
+              id="isAvailable"
+              name="isAvailable"
+              value={formData.isAvailable ? 'true' : 'false'}
+              onChange={(e) => setFormData((prev) => ({ ...prev, isAvailable: e.target.value === 'true' }))}
+            >
+              <option value="true">Available for Rental</option>
+              <option value="false">Unavailable / In Maintenance / Rented</option>
+            </select>
+            <span className="field-hint" style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
+              Setting to Unavailable hides the vehicle from active booking checkout.
+            </span>
+          </div>
+
+          <div className="form-group">
             <label htmlFor="description">Description</label>
             <textarea
               id="description"
@@ -220,7 +262,7 @@ function VehicleForm({ isOpen, onClose, onAddVehicle }) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Add Vehicle'}
+              {isSubmitting ? 'Saving...' : vehicleToEdit ? 'Save Changes' : 'Add Vehicle'}
             </button>
           </div>
         </form>

@@ -165,4 +165,26 @@ router.delete('/:id', verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// 6. TOGGLE VEHICLE AVAILABILITY (Admin Only)
+// Route: PATCH /api/vehicles/:id/toggle-availability
+router.patch('/:id/toggle-availability', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    vehicle.isAvailable = !vehicle.isAvailable;
+    await vehicle.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Vehicle marked as ${vehicle.isAvailable ? 'available' : 'unavailable'} for rental.`,
+      data: vehicle,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

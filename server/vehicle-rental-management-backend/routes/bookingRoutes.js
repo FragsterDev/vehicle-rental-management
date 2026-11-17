@@ -138,6 +138,23 @@ router.post('/', verifyToken, async (req, res) => {
       .populate('vehicle')
       .populate('user', 'name email phone address');
 
+    // Trigger Admin Notification for the new booking
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        type: 'new_booking',
+        title: 'New Booking Received',
+        message: `${populatedBooking.user?.name || 'Customer'} booked ${vehicle.make} ${vehicle.name} (${vehicle.regNumber}) for ${rentalDays} day(s).`,
+        booking: booking._id,
+        customerName: populatedBooking.user?.name || 'Customer',
+        vehicleName: `${vehicle.make} ${vehicle.name}`,
+        deliveryAddress: finalDeliveryAddress || 'Self Pickup / Counter',
+        isRead: false,
+      });
+    } catch (notifErr) {
+      console.error('Failed to create booking notification:', notifErr.message);
+    }
+
     res.status(201).json({
       success: true,
       message: `Vehicle ${vehicle.make} ${vehicle.name} successfully booked from ${start.toLocaleDateString()} to ${end.toLocaleDateString()}!`,
@@ -233,6 +250,23 @@ router.patch('/:id/return', verifyToken, async (req, res) => {
     if (vehicle) {
       vehicle.isAvailable = true;
       await vehicle.save();
+    }
+
+    // Trigger Admin Notification for the vehicle return
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        type: 'booking_returned',
+        title: 'Vehicle Returned',
+        message: `${vehicle?.make || ''} ${vehicle?.name || 'Vehicle'} (${vehicle?.regNumber || 'N/A'}) was returned${finalOverdueFee > 0 ? ` with overdue charge of ₹${finalOverdueFee.toLocaleString('en-IN')}` : ' in good order'}.`,
+        booking: booking._id,
+        customerName: req.user.name || 'Customer',
+        vehicleName: `${vehicle?.make || ''} ${vehicle?.name || ''}`,
+        deliveryAddress: booking.deliveryAddress || '',
+        isRead: false,
+      });
+    } catch (notifErr) {
+      console.error('Failed to create return notification:', notifErr.message);
     }
 
     res.status(200).json({

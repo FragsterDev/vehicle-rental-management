@@ -1,4 +1,5 @@
 import React from 'react';
+import NotificationDropdown from './NotificationDropdown';
 
 function Navbar({ activeTab, onTabChange, onGoHome, currentUser, onOpenAuth, onSignOut, onOpenAddForm }) {
   const handleLogoClick = () => {
@@ -64,9 +65,12 @@ function Navbar({ activeTab, onTabChange, onGoHome, currentUser, onOpenAuth, onS
           {currentUser ? (
             <div className="user-profile-badge">
               {currentUser.role === 'admin' && (
-                <button className="btn btn-primary-sm" onClick={onOpenAddForm}>
-                  + Add Vehicle
-                </button>
+                <>
+                  <NotificationDropdown onSelectBooking={() => onTabChange('all-bookings')} />
+                  <button className="btn btn-primary-sm" onClick={onOpenAddForm}>
+                    + Add Vehicle
+                  </button>
+                </>
               )}
               <div className="user-info">
                 <span className="user-name">{currentUser.name}</span>

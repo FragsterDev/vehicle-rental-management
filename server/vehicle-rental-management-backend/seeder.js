@@ -173,6 +173,8 @@ const seedData = async () => {
     const tucsonVehicle = await Vehicle.findOne({ regNumber: 'DL-03-EF-3003' });
     const classicVehicle = await Vehicle.findOne({ regNumber: 'HR-26-GH-4004' });
     const now = new Date();
+    let existingTucsonBooking = null;
+    let existingClassicBooking = null;
 
     if (standardUser && tucsonVehicle) {
       // Overdue Booking 1: 4 days past due date (Tucson @ ₹2,800/day)
@@ -182,7 +184,7 @@ const seedData = async () => {
       const overdueDays1 = 4;
       const overdueFee1 = overdueDays1 * tucsonVehicle.pricePerDay; // ₹11,200
 
-      let existingTucsonBooking = await Booking.findOne({ vehicle: tucsonVehicle._id, user: standardUser._id });
+      existingTucsonBooking = await Booking.findOne({ vehicle: tucsonVehicle._id, user: standardUser._id });
       if (!existingTucsonBooking) {
         existingTucsonBooking = new Booking({
           user: standardUser._id,
@@ -221,7 +223,7 @@ const seedData = async () => {
       const overdueDays2 = 6;
       const overdueFee2 = overdueDays2 * classicVehicle.pricePerDay; // ₹5,100
 
-      let existingClassicBooking = await Booking.findOne({ vehicle: classicVehicle._id, user: standardUser._id });
+      existingClassicBooking = await Booking.findOne({ vehicle: classicVehicle._id, user: standardUser._id });
       if (!existingClassicBooking) {
         existingClassicBooking = new Booking({
           user: standardUser._id,
@@ -250,6 +252,37 @@ const seedData = async () => {
       classicVehicle.isAvailable = false;
       await classicVehicle.save();
       console.log(`Seeded Classic 350 overdue booking (6 days late, overdue fee: ₹${overdueFee2.toLocaleString('en-IN')}).`);
+    }
+
+    // 4. Seed sample notifications for Admin
+    const Notification = require('./models/Notification');
+    const notifCount = await Notification.countDocuments();
+    if (notifCount === 0) {
+      await Notification.create([
+        {
+          type: 'new_booking',
+          title: 'New Booking Received',
+          message: 'John Doe booked Hyundai Tucson (DL-03-EF-3003) for 5 day(s).',
+          booking: existingTucsonBooking?._id,
+          customerName: 'John Doe',
+          vehicleName: 'Hyundai Tucson',
+          deliveryAddress: '42 MG Road, Indiranagar, Bengaluru, Karnataka 560038',
+          isRead: false,
+          createdAt: new Date(now.getTime() - 25 * 60 * 1000),
+        },
+        {
+          type: 'new_booking',
+          title: 'New Booking Received',
+          message: 'John Doe booked Royal Enfield Classic 350 (HR-26-GH-4004) for 6 day(s).',
+          booking: existingClassicBooking?._id,
+          customerName: 'John Doe',
+          vehicleName: 'Royal Enfield Classic 350',
+          deliveryAddress: 'Flat 204, Green Heights, 100ft Road, Indiranagar, Bengaluru',
+          isRead: false,
+          createdAt: new Date(now.getTime() - 5 * 60 * 1000),
+        },
+      ]);
+      console.log('Seeded sample Admin notifications.');
     }
 
     console.log('Seeder completed safely without deleting existing user data!');

@@ -31,12 +31,14 @@ function Navbar({ activeTab, onTabChange, onGoHome, currentUser, onOpenAuth, onS
 
         {/* Navigation Tabs */}
         <nav className="nav-tabs">
-          <button
-            className={`nav-tab-btn ${activeTab === 'vehicles' ? 'active' : ''}`}
-            onClick={() => onTabChange('vehicles')}
-          >
-            Vehicles
-          </button>
+          {currentUser && (
+            <button
+              className={`nav-tab-btn ${activeTab === 'vehicles' ? 'active' : ''}`}
+              onClick={() => onTabChange('vehicles')}
+            >
+              Vehicles
+            </button>
+          )}
 
           {currentUser && (
             <button

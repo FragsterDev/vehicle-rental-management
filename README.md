@@ -1,6 +1,6 @@
 # DriveEase — Vehicle Rental Management System
 
-A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle rental and fleet management. It features role-based access for customers and admins, rental duration and pricing calculation in INR (₹), a simulated payment flow (UPI, Card, Net Banking), overdue tracking, and downloadable PDF invoices.
+A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle rental and fleet management. It features doorstep vehicle delivery to the customer's address, role-based access for customers and admins, rental duration and pricing calculation in INR (₹), a simulated payment flow (UPI, Card, Net Banking), a 24-hour return grace period policy with automated overdue charges, an admin notification center, and itemized PDF tax invoices.
 
 ---
 
@@ -22,11 +22,13 @@ A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle ren
 ## Features
 
 - **Authentication & Roles**: JWT-based authentication with bcrypt password hashing. Separate permissions and views for customers (`user`) and fleet managers (`admin`).
+- **Doorstep Vehicle Delivery**: Customers specify or confirm their delivery address during booking so the admin can deliver and dispatch the vehicle directly to their location.
 - **Fleet Inventory Management**: Admins can add and remove vehicles with make, model, registration number, category, daily rental rate, fuel type, seating capacity, and image URL preview.
 - **Rental Booking & Pricing**: Select start and return dates with automatic calculation of rental duration and total price in Indian Rupees (`₹`).
 - **Simulated Payment Gateway**: Checkout flow supporting UPI, Debit/Credit Card, and Net Banking options, generating simulated order and payment IDs.
-- **Overdue Tracking**: Automatically marks active bookings as overdue when the scheduled return date has passed, displaying the number of days overdue.
-- **PDF Invoice Generation**: Download a clean, itemized PDF tax invoice for any booking with vehicle details, customer info, and GST breakdown.
+- **24-Hour Grace Period & Overdue Charges**: Vehicles returned within 24 hours of the due date incur no penalty. If not returned within 24 hours, daily rental charges apply for every overdue day.
+- **Admin In-App Notifications**: Notification bell in the navigation bar with an unread badge counter, alerting the admin when new bookings are placed or vehicles are returned.
+- **Itemized PDF Invoices**: Downloadable PDF tax invoice with customer delivery address, vehicle specs, GST breakdown, and itemized overdue charges.
 - **Minimalist UI**: Clean, responsive layout without emojis or clutter, including category filters and search.
 
 ---
@@ -86,19 +88,21 @@ vehicle-rental-management-live/
 │       ├── middleware/
 │       │   └── auth.js                        # JWT verification and Admin role-checking middleware
 │       ├── models/
-│       │   ├── User.js                        # Mongoose User schema (name, email, phone, password, role)
-│       │   ├── Vehicle.js                     # Mongoose Vehicle schema (make, name, regNumber, price, etc.)
-│       │   └── Booking.js                     # Mongoose Booking schema (dates, payment, IDs, status)
+│       │   ├── User.js                        # User schema (name, email, phone, address, password, role)
+│       │   ├── Vehicle.js                     # Vehicle schema (make, name, regNumber, price, etc.)
+│       │   ├── Booking.js                     # Booking schema (dates, delivery address, overdue fee, IDs)
+│       │   └── Notification.js                # In-app notifications for Admin (new bookings, returns)
 │       ├── routes/
 │       │   ├── authRoutes.js                  # Authentication routes (/register, /login, /me)
 │       │   ├── vehicleRoutes.js               # Vehicle fleet CRUD & smart image link resolver
-│       │   └── bookingRoutes.js               # Rental bookings, returns, and overdue checking
+│       │   ├── bookingRoutes.js               # Rental bookings, returns, and overdue tracking
+│       │   └── notificationRoutes.js          # Admin notification center endpoints
 │       ├── .env                               # Local secrets (MongoDB URI, JWT secret, Port) [Ignored]
 │       ├── .env.example                       # Safe environment template with placeholder keys
 │       ├── .gitignore                         # Server-specific Git ignore
 │       ├── package.json                       # Backend scripts and dependencies
-│       ├── seeder.js                          # Safe database seeder (seeds Admin, Users, and Fleet)
-│       └── server.js                          # Express application entry point & MongoDB Atlas connection
+│       ├── seeder.js                          # Safe database seeder (seeds Admin, Users, Fleet, and Bookings)
+│       └── server.js                          # Express entry point & MongoDB Atlas connection
 │
 └── client/
     └── vehicle-rental-management-frontend/
@@ -109,18 +113,20 @@ vehicle-rental-management-live/
         │   ├── assets/
         │   │   └── hero.png                   # Vehicle hero artwork
         │   ├── components/
-        │   │   ├── AllBookings.jsx            # Admin view: all system rentals, IDs, & invoice downloads
-        │   │   ├── AuthModal.jsx              # Sign In / Registration modal with demo quick-fill
+        │   │   ├── AllBookings.jsx            # Admin view: all bookings, delivery addresses & overdue fees
+        │   │   ├── AuthModal.jsx              # Sign In / Registration modal with address input & demo fill
         │   │   ├── FilterBar.jsx              # Search and category/status filter controls
-        │   │   ├── MyRentals.jsx              # Customer view: active/overdue rentals & PDF invoices
-        │   │   ├── Navbar.jsx                 # Top header with interactive brand logo & role badge
-        │   │   ├── RentModal.jsx              # 3-step rental modal: dates, simulated gateway, receipt
+        │   │   ├── MyRentals.jsx              # Customer view: active/overdue rentals, delivery info & invoices
+        │   │   ├── Navbar.jsx                 # Top header with brand logo, role badge & notification bell
+        │   │   ├── NotificationDropdown.jsx   # Admin notification drawer with unread counter
+        │   │   ├── RentModal.jsx              # 3-step rental modal: dates & delivery address, payment, receipt
         │   │   ├── VehicleCard.jsx            # Fleet card with registration tag, pricing, & actions
         │   │   └── VehicleForm.jsx            # Admin modal: add vehicle with live image preview
         │   ├── services/
         │   │   └── api.js                     # Centralized Axios instance with auto JWT header injection
         │   ├── utils/
-        │   │   └── generateInvoice.js         # jsPDF corporate tax invoice generator
+        │   │   ├── generateInvoice.js         # jsPDF tax invoice generator with delivery & overdue details
+        │   │   └── overdueUtils.js            # 24-hour return grace period & overdue fee calculation logic
         │   ├── App.css                        # Complete minimalist styling (zero emojis, monochrome theme)
         │   ├── App.jsx                        # Root React component, state manager, & tab coordinator
         │   ├── index.css                      # Global CSS reset
@@ -154,31 +160,48 @@ Axios Request Interceptor automatically attaches:
 Header -> Authorization: Bearer <token> on every subsequent request
 ```
 
-### 2. Rental Checkout & Payment Flow
+### 2. Rental Checkout & Doorstep Delivery Flow
 ```
-1. Customer clicks "Rent Vehicle" on an available card
-2. Selects Start Date & Return Date -> System computes days and Total Price (₹)
-3. Clicks "Proceed to Payment" -> Opens Simulated Gateway (UPI / Card / Net Banking)
-4. Clicks "Pay ₹X" -> Simulates banking authorization delay (1.3s)
-5. Generates unique paymentId (pay_sim_...) and orderId (order_sim_...)
-6. Sends POST /api/bookings to backend
-7. Backend creates Booking record with paymentStatus: "paid" and marks Vehicle unavailable
-8. Frontend renders Digital Receipt with instant "Download Invoice (PDF)" action
+1. Customer clicks "Rent Vehicle" on an available fleet card
+2. Selects Start Date & Return Date -> System computes rental days and Total Price (₹)
+3. Enters or confirms Doorstep Delivery Address for vehicle drop-off
+4. Clicks "Proceed to Payment" -> Opens Simulated Gateway (UPI / Card / Net Banking)
+5. Clicks "Pay ₹X" -> Simulates banking authorization delay (1.3s)
+6. Generates unique paymentId (pay_sim_...) and orderId (order_sim_...)
+7. Sends POST /api/bookings with dates, payment IDs, and deliveryAddress
+8. Backend saves booking, sets vehicle unavailable, and creates an Admin Notification
+9. Frontend renders Digital Receipt with instant "Download Invoice (PDF)" action
 ```
 
-### 3. Automated Overdue Flow
+### 3. Overdue & 24-Hour Return Policy Flow
 ```
 Request to /api/bookings or /api/bookings/my-rentals
        │
        ▼
-updateOverdueBookings() checks MongoDB:
-status == "active" AND returnDate < now
+updateOverdueBookings() marks overdue:
+status == "active" AND returnDate < now -> status: "overdue"
        │
        ▼
-Automatically updates matching records to status: "overdue"
+Evaluates 24-Hour Grace Period:
+• Returned within 24h of due date: Grace period active, ₹0 overdue penalty
+• Not returned within 24h: Overdue Fee = Overdue Days × Daily Rental Rate
        │
        ▼
-Frontend displays red OVERDUE badge and "X day(s) late" tag
+UI displays red OVERDUE badge and days late; PDF invoices itemize exact penalty
+```
+
+### 4. Admin Notification Flow
+```
+Customer books vehicle or returns rental
+       │
+       ▼
+Backend creates Notification record with customer name and delivery address
+       │
+       ▼
+Admin Navbar bell icon updates unread badge counter (auto-polled every 15s)
+       │
+       ▼
+Admin clicks notification to view delivery drop-off details and jump to All Bookings
 ```
 
 ---
@@ -191,6 +214,7 @@ Frontend displays red OVERDUE badge and "X day(s) late" tag
 | `name` | String | Required, Trim | Full name of the user |
 | `email` | String | Required, Unique, Lowercase, Trim | Account email address |
 | `phone` | String | Required, Trim | Contact phone number |
+| `address` | String | Trim, Optional | Default delivery address for vehicle drop-off |
 | `password` | String | Required, Min length 6 | Salted bcrypt hash |
 | `role` | String | Enum: `['user', 'admin']`, Default: `'user'` | Access level |
 | `timestamps` | Date | Auto (`createdAt`, `updatedAt`) | Audit trail |
@@ -220,11 +244,26 @@ Frontend displays red OVERDUE badge and "X day(s) late" tag
 | `actualReturnDate`| Date | Optional | Actual date vehicle was returned |
 | `days` | Number | Required, Min: 1 | Duration of rental |
 | `totalPrice` | Number | Required | Total amount billed in `₹` |
+| `deliveryAddress` | String | Trim | Address where admin delivers vehicle |
+| `overdueFee` | Number | Default: `0` | Overdue penalty charged if > 24h late |
 | `status` | String | Enum: `['active', 'returned', 'overdue']` | Current rental lifecycle status |
 | `paymentStatus`| String | Enum: `['paid', 'pending', 'refunded']`, Default: `'paid'` | Transaction payment state |
 | `paymentMethod`| String | Default: `'UPI'` | Method used (UPI, Card, Net Banking) |
 | `paymentId` | String | Indexed | Unique payment identifier (`pay_sim_...`) |
 | `orderId` | String | Indexed | Unique order identifier (`order_sim_...`) |
+| `timestamps` | Date | Auto (`createdAt`, `updatedAt`) | Audit trail |
+
+### 4. Notification Model (`models/Notification.js`)
+| Field | Type | Attributes | Description |
+|---|---|---|---|
+| `type` | String | Enum: `['new_booking', 'booking_returned', 'booking_overdue']` | Event category |
+| `title` | String | Required, Trim | Short notification headline |
+| `message` | String | Required, Trim | Detailed event text with vehicle & customer |
+| `booking` | ObjectId | Ref: `'Booking'` | Reference to associated rental |
+| `customerName` | String | Trim | Name of the customer |
+| `vehicleName` | String | Trim | Vehicle make and model |
+| `deliveryAddress` | String | Trim | Delivery drop-off location |
+| `isRead` | Boolean | Default: `false` | Read/unread status for Admin |
 | `timestamps` | Date | Auto (`createdAt`, `updatedAt`) | Audit trail |
 
 ---
@@ -236,7 +275,7 @@ Frontend displays red OVERDUE badge and "X day(s) late" tag
 ### 1. Authentication Endpoints (`/auth`)
 | Method | Endpoint | Access | Body / Params | Description |
 |---|---|---|---|---|
-| `POST` | `/auth/register` | Public | `{ name, email, phone, password, role? }` | Registers a new user with bcrypt-hashed password |
+| `POST` | `/auth/register` | Public | `{ name, email, phone, address?, password, role? }` | Registers a new user with address & bcrypt-hashed password |
 | `POST` | `/auth/login` | Public | `{ email, password }` | Authenticates credentials and returns JWT token |
 | `GET` | `/auth/me` | Authenticated | Bearer Token in Header | Retrieves the current user's profile |
 
@@ -252,10 +291,17 @@ Frontend displays red OVERDUE badge and "X day(s) late" tag
 ### 3. Booking & Rental Endpoints (`/bookings`)
 | Method | Endpoint | Access | Body / Params | Description |
 |---|---|---|---|---|
-| `POST` | `/bookings` | Authenticated | `{ vehicleId, bookingDate, returnDate, days, paymentMethod, paymentId, orderId }` | Books a vehicle and sets `isAvailable: false` |
-| `GET` | `/bookings/my-rentals` | Authenticated | Bearer Token | Returns logged-in user's rental history with user details |
-| `GET` | `/bookings` | **Admin Only** | Bearer Token | Returns all customer bookings across the business |
-| `PATCH`| `/bookings/:id/return`| Authenticated | Path: `:id` | Marks vehicle as returned, sets `actualReturnDate`, and restores vehicle availability |
+| `POST` | `/bookings` | Authenticated | `{ vehicleId, bookingDate, returnDate, days, deliveryAddress, paymentMethod, paymentId, orderId }` | Books vehicle, sets delivery address, and notifies admin |
+| `GET` | `/bookings/my-rentals` | Authenticated | Bearer Token | Returns logged-in user's rentals, delivery info & overdue fees |
+| `GET` | `/bookings` | **Admin Only** | Bearer Token | Returns all system bookings with delivery dispatch addresses |
+| `PATCH`| `/bookings/:id/return`| Authenticated | Path: `:id` | Returns vehicle, assesses overdue fee if > 24h late, restores fleet |
+
+### 4. Notification Endpoints (`/notifications`)
+| Method | Endpoint | Access | Body / Params | Description |
+|---|---|---|---|---|
+| `GET` | `/notifications` | **Admin Only** | Bearer Token | Fetches recent booking and return notifications with unread count |
+| `PATCH`| `/notifications/:id/read` | **Admin Only** | Path: `:id` | Marks a specific notification as read |
+| `PATCH`| `/notifications/read-all` | **Admin Only** | Bearer Token | Marks all admin notifications as read |
 
 ---
 

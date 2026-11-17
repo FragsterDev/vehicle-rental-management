@@ -1,97 +1,33 @@
 # DriveEase — Vehicle Rental Management System
 
-A production-ready, full-stack **MERN** (MongoDB, Express.js, React, Node.js) web application designed for comprehensive vehicle fleet management, role-based customer and administrative workflows, automated rental duration and pricing calculations in **Indian Rupees (INR - ₹)**, date-based overdue tracking, a simulated Indian payment gateway (UPI, Cards, Net Banking), and automated corporate PDF tax invoice generation.
+A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle rental and fleet management. It features role-based access for customers and admins, rental duration and pricing calculation in INR (₹), a simulated payment flow (UPI, Card, Net Banking), overdue tracking, and downloadable PDF invoices.
 
 ---
 
 ## Table of Contents
 
-1. [Project Overview](#project-overview)
-2. [Key Features](#key-features)
-3. [Tech Stack](#tech-stack)
-4. [Libraries & Dependencies](#libraries--dependencies)
-5. [Folder Structure](#folder-structure)
-6. [Architecture & Workflow](#architecture--workflow)
-7. [Database Schemas & Models](#database-schemas--models)
-8. [REST API Documentation](#rest-api-documentation)
-9. [Pre-Configured Demo Credentials](#pre-configured-demo-credentials)
-10. [Installation & Setup](#installation--setup)
-11. [Safe Database Seeder](#safe-database-seeder)
-12. [Security & Best Practices](#security--best-practices)
-13. [Future Roadmap](#future-roadmap)
+1. [Features](#features)
+2. [Tech Stack](#tech-stack)
+3. [Libraries & Dependencies](#libraries--dependencies)
+4. [Folder Structure](#folder-structure)
+5. [Architecture & Workflow](#architecture--workflow)
+6. [Database Schemas & Models](#database-schemas--models)
+7. [REST API Documentation](#rest-api-documentation)
+8. [Demo Credentials](#demo-credentials)
+9. [Installation & Setup](#installation--setup)
+10. [Database Seeder](#safe-database-seeder)
 
 ---
 
-## Project Overview
+## Features
 
-**DriveEase** bridges the gap between vehicle rental providers and end customers. It provides a clean, distraction-free, minimalist user experience without emojis or cluttered UI elements.
-
-- **For Customers**: Browse a live fleet of verified vehicles (Cars, SUVs, Bikes, Trucks, Vans), filter by category and availability, choose rental dates with live price calculation, complete transactions via a simulated payment gateway (UPI / Cards / Net Banking), monitor active rentals, return vehicles, and download print-ready PDF tax invoices.
-- **For Fleet Administrators**: Maintain full inventory control (add new vehicles with live image preview and URL resolution, delete vehicles, inspect registration numbers), monitor all customer bookings across the business, identify overdue rentals, and issue administrative returns.
-
----
-
-## Key Features
-
-### 1. Role-Based Access Control (RBAC) & Authentication
-- Secure user registration and login with **JSON Web Tokens (JWT)** and **bcryptjs** (10 salt rounds).
-- Distinct roles: `user` (Customer) and `admin` (Fleet Manager).
-- Protected API routes and role-guarded UI views.
-- Automatic login upon registration and persistent session management via browser `localStorage`.
-- One-click demo login buttons for evaluation.
-
-### 2. Fleet Inventory Management (Admin)
-- Add new vehicles with comprehensive metadata: Make (Brand), Model Name, unique Registration Number (e.g. `WB74BG8329`), Vehicle Category (`Car`, `Bike`, `SUV`, `Truck`, `Van`), Daily Rental Rate in `₹`, Fuel Type (`Petrol`, `Diesel`, `Electric`, `Hybrid`), Seating Capacity, Image URL, and Description.
-- **Live Image Preview**: Visual thumbnail validation before saving.
-- **Smart Image Link Resolver**: Automatically converts webpage/sharing links (Kommodo, Google Drive, Imgur) into direct image URLs before saving.
-- Category-specific image fallbacks and hotlink protection (`referrerPolicy="no-referrer"`).
-- Delete vehicle capability with confirmation guards.
-
-### 3. Date-Based Rental & Automated Calculation
-- Dynamic date picker for **Booking Date (Start)** and **Return Date (Deadline)**.
-- Automated rental day calculation:
-  $$\text{Duration (Days)} = \max\left(1, \left\lceil \frac{\text{Return Date} - \text{Booking Date}}{24 \times 60 \times 60 \times 1000} \right\rceil\right)$$
-- Live pricing in Indian Rupees:
-  $$\text{Total Amount} = \text{Duration (Days)} \times \text{Daily Rate (₹)}$$
-
-### 4. Simulated Indian Payment Gateway
-- Supports primary payment rails used in India:
-  - **UPI**: Virtual Payment Address (`@okhdfcbank`, `@okaxis`, etc.) with one-click test fill.
-  - **Debit / Credit Cards**: Card number, expiry, CVV with pre-filled test cards.
-  - **Net Banking**: Major Indian banks (HDFC, SBI, ICICI, Axis, Kotak).
-- Multi-phase simulated banking communication (*"Connecting to gateway..."* &rarr; *"Verifying with bank..."* &rarr; *"Payment authorized"*).
-- Generates realistic production-style identifiers:
-  - `paymentId`: e.g. `pay_sim_1731564938210_4912`
-  - `orderId`: e.g. `order_sim_1731564938210`
-- Instant post-payment digital receipt with all transaction metadata.
-
-### 5. Automated Overdue Detection Engine
-- Runs automatically whenever bookings are retrieved:
-  $$\text{If } \text{status} = \text{'active'} \land \text{returnDate} < \text{Current Date} \implies \text{status} \leftarrow \text{'overdue'}$$
-- Visual indicators in UI:
-  - Prominent red **`OVERDUE`** status tag.
-  - Late duration counter (e.g. `2 day(s) late`).
-  - Row highlighting with high-visibility alert accents.
-- Both active and overdue vehicles can be returned at any time, restoring fleet availability.
-
-### 6. Corporate PDF Tax Invoice Generation
-- Built with **`jspdf`** and **`jspdf-autotable`**.
-- Official, print-ready corporate layout:
-  - **Tax Invoice Header**: Company name, GSTIN (`29AABCU9603R1ZM`), CIN, registered address.
-  - **Invoice Identifiers**: Invoice Number (`INV-...`), Payment ID, Order ID, Date of Issue.
-  - **Billed To (Customer Details)**: Customer Name, Email ID, Phone Number.
-  - **Vehicle Summary**: Make, Model, Category, Registration Number, Duration.
-  - **Itemized Tax Breakdown**: Base Rental Value, Central GST (CGST @ 9%), State GST (SGST @ 9%), Total Paid in Full (in `Rs. / INR`).
-  - **Acknowledgement**: Transaction reference, terms & conditions, system-generated authorized signatory notice.
-- Downloadable with 1 click from:
-  1. The checkout success modal.
-  2. Customer **My Rentals** table.
-  3. Administrator **All Bookings** table.
-
-### 7. Minimalist User Experience
-- Strict aesthetic: monochrome / neutral slate palette (`#0f172a`, `#64748b`, `#f8fafc`).
-- **Zero emojis**: Uses clean typography, monospace registration badges, and structured layouts.
-- Interactive brand logo: Clicking the logo resets filters and navigates to the home fleet catalog.
+- **Authentication & Roles**: JWT-based authentication with bcrypt password hashing. Separate permissions and views for customers (`user`) and fleet managers (`admin`).
+- **Fleet Inventory Management**: Admins can add and remove vehicles with make, model, registration number, category, daily rental rate, fuel type, seating capacity, and image URL preview.
+- **Rental Booking & Pricing**: Select start and return dates with automatic calculation of rental duration and total price in Indian Rupees (`₹`).
+- **Simulated Payment Gateway**: Checkout flow supporting UPI, Debit/Credit Card, and Net Banking options, generating simulated order and payment IDs.
+- **Overdue Tracking**: Automatically marks active bookings as overdue when the scheduled return date has passed, displaying the number of days overdue.
+- **PDF Invoice Generation**: Download a clean, itemized PDF tax invoice for any booking with vehicle details, customer info, and GST breakdown.
+- **Minimalist UI**: Clean, responsive layout without emojis or clutter, including category filters and search.
 
 ---
 
@@ -323,7 +259,7 @@ Frontend displays red OVERDUE badge and "X day(s) late" tag
 
 ---
 
-## Pre-Configured Demo Credentials
+## Demo Credentials
 
 The database seeder pre-populates two accounts with hashed passwords:
 

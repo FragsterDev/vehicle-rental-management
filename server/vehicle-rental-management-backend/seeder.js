@@ -169,6 +169,89 @@ const seedData = async () => {
       }
     }
 
+    // 3. Seed Sample Bookings (including active, past due, and overdue bookings)
+    const tucsonVehicle = await Vehicle.findOne({ regNumber: 'DL-03-EF-3003' });
+    const classicVehicle = await Vehicle.findOne({ regNumber: 'HR-26-GH-4004' });
+    const now = new Date();
+
+    if (standardUser && tucsonVehicle) {
+      // Overdue Booking 1: 4 days past due date (Tucson @ ₹2,800/day)
+      const returnDate1 = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
+      const bookingDate1 = new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000);
+      const days1 = 5;
+      const overdueDays1 = 4;
+      const overdueFee1 = overdueDays1 * tucsonVehicle.pricePerDay; // ₹11,200
+
+      let existingTucsonBooking = await Booking.findOne({ vehicle: tucsonVehicle._id, user: standardUser._id });
+      if (!existingTucsonBooking) {
+        existingTucsonBooking = new Booking({
+          user: standardUser._id,
+          vehicle: tucsonVehicle._id,
+          bookingDate: bookingDate1,
+          returnDate: returnDate1,
+          days: days1,
+          totalPrice: tucsonVehicle.pricePerDay * days1,
+          deliveryAddress: '42 MG Road, Indiranagar, Bengaluru, Karnataka 560038',
+          overdueFee: overdueFee1,
+          status: 'overdue',
+          paymentStatus: 'paid',
+          paymentMethod: 'UPI (john.doe@okaxis)',
+          paymentId: `pay_sim_${Date.now()}_tucson`,
+          orderId: `order_sim_${Date.now()}_tucson`,
+        });
+      } else {
+        existingTucsonBooking.bookingDate = bookingDate1;
+        existingTucsonBooking.returnDate = returnDate1;
+        existingTucsonBooking.days = days1;
+        existingTucsonBooking.deliveryAddress = '42 MG Road, Indiranagar, Bengaluru, Karnataka 560038';
+        existingTucsonBooking.status = 'overdue';
+        existingTucsonBooking.overdueFee = overdueFee1;
+      }
+      await existingTucsonBooking.save();
+      tucsonVehicle.isAvailable = false;
+      await tucsonVehicle.save();
+      console.log(`Seeded Tucson overdue booking (4 days late, overdue fee: ₹${overdueFee1.toLocaleString('en-IN')}).`);
+    }
+
+    if (standardUser && classicVehicle) {
+      // Overdue Booking 2: 6 days past due date (Royal Enfield @ ₹850/day)
+      const returnDate2 = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+      const bookingDate2 = new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000);
+      const days2 = 6;
+      const overdueDays2 = 6;
+      const overdueFee2 = overdueDays2 * classicVehicle.pricePerDay; // ₹5,100
+
+      let existingClassicBooking = await Booking.findOne({ vehicle: classicVehicle._id, user: standardUser._id });
+      if (!existingClassicBooking) {
+        existingClassicBooking = new Booking({
+          user: standardUser._id,
+          vehicle: classicVehicle._id,
+          bookingDate: bookingDate2,
+          returnDate: returnDate2,
+          days: days2,
+          totalPrice: classicVehicle.pricePerDay * days2,
+          deliveryAddress: 'Flat 204, Green Heights, 100ft Road, Indiranagar, Bengaluru',
+          overdueFee: overdueFee2,
+          status: 'overdue',
+          paymentStatus: 'paid',
+          paymentMethod: 'Card (ends in 4092)',
+          paymentId: `pay_sim_${Date.now()}_classic`,
+          orderId: `order_sim_${Date.now()}_classic`,
+        });
+      } else {
+        existingClassicBooking.bookingDate = bookingDate2;
+        existingClassicBooking.returnDate = returnDate2;
+        existingClassicBooking.days = days2;
+        existingClassicBooking.deliveryAddress = 'Flat 204, Green Heights, 100ft Road, Indiranagar, Bengaluru';
+        existingClassicBooking.status = 'overdue';
+        existingClassicBooking.overdueFee = overdueFee2;
+      }
+      await existingClassicBooking.save();
+      classicVehicle.isAvailable = false;
+      await classicVehicle.save();
+      console.log(`Seeded Classic 350 overdue booking (6 days late, overdue fee: ₹${overdueFee2.toLocaleString('en-IN')}).`);
+    }
+
     console.log('Seeder completed safely without deleting existing user data!');
     process.exit(0);
   } catch (error) {

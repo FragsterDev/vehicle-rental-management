@@ -24,6 +24,8 @@ const seedData = async () => {
 
     if (shouldReset) {
       console.log('Reset flag provided: clearing existing records...');
+      const Notification = require('./models/Notification');
+      await Notification.deleteMany({});
       await Booking.deleteMany({});
       await Vehicle.deleteMany({});
       await User.deleteMany({});

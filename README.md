@@ -31,6 +31,7 @@ A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle ren
 - **Admin Booking Cancellation**: Admins can cancel any active or overdue customer booking directly from the booking overview, automatically marking payment as refunded and restoring the vehicle to the available fleet.
 - **Admin In-App Notifications**: Notification bell in the navigation bar with an unread badge counter, alerting the admin when new bookings are placed or vehicles are returned.
 - **Itemized PDF Invoices**: Downloadable PDF tax invoice with customer delivery address, vehicle specs, GST breakdown, and itemized overdue charges.
+- **Input Validation & Keystroke Sanitization**: Comprehensive validation for email (RFC standards), password (min 6 chars with show/hide toggle), phone numbers (strictly 10 digits starting with 6-9), names, and delivery addresses. Physical keystroke blockers and paste filters block special characters where they are not permitted.
 - **Minimalist UI**: Clean, responsive layout without emojis or clutter, including category filters and search.
 
 ---
@@ -206,6 +207,24 @@ Admin Navbar bell icon updates unread badge counter (auto-polled every 15s)
 Admin clicks notification to view delivery drop-off details and jump to All Bookings
 ```
 
+### 5. Admin Cancellation & Vehicle Release Flow
+```
+Admin clicks "Cancel" on an active or overdue rental in All Bookings
+       │
+       ▼
+Admin confirms cancellation action in prompt
+       │
+       ▼
+Backend PATCH /api/bookings/:id/cancel:
+• Sets booking.status = "cancelled"
+• Sets booking.paymentStatus = "refunded"
+• Restores vehicle.isAvailable = true (releases vehicle back to fleet)
+• Dispatches admin notification
+       │
+       ▼
+Vehicle immediately reappears in customer catalog for new bookings
+```
+
 ---
 
 ## Database Schemas & Models
@@ -248,7 +267,7 @@ Admin clicks notification to view delivery drop-off details and jump to All Book
 | `totalPrice` | Number | Required | Total amount billed in `₹` |
 | `deliveryAddress` | String | Trim | Address where admin delivers vehicle |
 | `overdueFee` | Number | Default: `0` | Overdue penalty charged if > 24h late |
-| `status` | String | Enum: `['active', 'returned', 'overdue']` | Current rental lifecycle status |
+| `status` | String | Enum: `['active', 'returned', 'overdue', 'cancelled']` | Current rental lifecycle status |
 | `paymentStatus`| String | Enum: `['paid', 'pending', 'refunded']`, Default: `'paid'` | Transaction payment state |
 | `paymentMethod`| String | Default: `'UPI'` | Method used (UPI, Card, Net Banking) |
 | `paymentId` | String | Indexed | Unique payment identifier (`pay_sim_...`) |
@@ -431,6 +450,9 @@ The seeder ([seeder.js](file:///c:/Users/om190/OneDrive/Documents/Programming%20
    - Administrative actions (adding cars, deleting cars, auditing all customer bookings) require `verifyAdmin` validation.
 5. **Hotlink Defense**:
    - `referrerPolicy="no-referrer"` is enforced on all external images to prevent third-party hosts from blocking local dev requests.
+6. **Input Sanitization & Injection Defense**:
+   - Strict frontend keystroke blocking (`onKeyDown`) and real-time paste sanitization (`onChange`) prevent illegal special characters from being entered into names, phone numbers, email addresses, registration plates, and numerical rates.
+   - Backend regex validation ensures malformed or injected data cannot bypass client controls.
 
 ---
 

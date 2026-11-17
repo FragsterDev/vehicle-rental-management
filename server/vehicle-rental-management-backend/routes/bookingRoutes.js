@@ -67,7 +67,7 @@ router.post('/', verifyToken, async (req, res) => {
     if (!vehicle.isAvailable) {
       return res.status(400).json({
         success: false,
-        message: 'This vehicle is currently unavailable or rented out.',
+        message: 'This vehicle is currently unavailable for rental.',
       });
     }
 

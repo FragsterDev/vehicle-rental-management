@@ -64,7 +64,7 @@ function App() {
     if (activeTab === 'vehicles') {
       loadVehicles();
     }
-  }, [activeTab, selectedType, selectedStatus]);
+  }, [activeTab, selectedType, selectedStatus, currentUser]);
 
   // Auth Handlers
   const handleAuthSuccess = (user) => {
@@ -100,7 +100,9 @@ function App() {
       const updated = await toggleVehicleAvailability(id);
       setVehicles((prev) => prev.map((v) => (v._id === id ? updated : v)));
       showAlert(
-        `${updated.make} ${updated.name} is now ${updated.isAvailable ? 'available' : 'unavailable'} for rental.`
+        updated.isAvailable
+          ? `${updated.make} ${updated.name} is now available for rental.`
+          : `${updated.make} ${updated.name} is now marked unavailable (hidden from users).`
       );
     } catch (err) {
       showAlert(err.response?.data?.message || 'Failed to update vehicle availability.', 'error');
@@ -141,8 +143,18 @@ function App() {
     loadVehicles();
   };
 
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Filter vehicles: regular users/guests never see unavailable vehicles; admins see all
+  const visibleVehicles = vehicles.filter((v) => {
+    if (!isAdmin && !v.isAvailable) {
+      return false;
+    }
+    return true;
+  });
+
   // Filter vehicles by search term
-  const filteredVehicles = vehicles.filter((v) => {
+  const filteredVehicles = visibleVehicles.filter((v) => {
     const query = searchTerm.toLowerCase();
     return (
       v.name?.toLowerCase().includes(query) ||
@@ -205,6 +217,7 @@ function App() {
                 setSelectedStatus('All');
                 setSearchTerm('');
               }}
+              isAdmin={isAdmin}
             />
 
             {loading && (

@@ -238,10 +238,10 @@ function VehicleForm({ isOpen, onClose, onSaveVehicle, vehicleToEdit = null }) {
               onChange={(e) => setFormData((prev) => ({ ...prev, isAvailable: e.target.value === 'true' }))}
             >
               <option value="true">Available for Rental</option>
-              <option value="false">Unavailable / In Maintenance / Rented</option>
+              <option value="false">Unavailable (Hidden from users)</option>
             </select>
             <span className="field-hint" style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '0.2rem' }}>
-              Setting to Unavailable hides the vehicle from active booking checkout.
+              Setting to Unavailable delists and hides the vehicle from regular users in the fleet catalog.
             </span>
           </div>
 

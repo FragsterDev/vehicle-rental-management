@@ -40,7 +40,7 @@ function VehicleCard({
   const isAdmin = currentUser?.role === 'admin';
 
   return (
-    <div className={`vehicle-card ${isAvailable ? 'card-available' : 'card-rented'}`}>
+    <div className={`vehicle-card ${isAvailable ? 'card-available' : 'card-unavailable'}`}>
       <div className="card-image-wrapper">
         <img
           src={imgSrc}
@@ -50,8 +50,8 @@ function VehicleCard({
           onError={handleImageError}
         />
         <div className="image-badges">
-          <span className={`status-badge ${isAvailable ? 'badge-available' : 'badge-rented'}`}>
-            {isAvailable ? 'Available' : 'Rented'}
+          <span className={`status-badge ${isAvailable ? 'badge-available' : 'badge-unavailable'}`}>
+            {isAvailable ? 'Available' : 'Unavailable'}
           </span>
           <span className="type-badge">{type}</span>
         </div>
@@ -72,6 +72,11 @@ function VehicleCard({
         <div className="vehicle-reg">
           <span className="reg-label">Reg:</span>
           <span className="reg-number font-mono">{regNumber}</span>
+          {!isAvailable && isAdmin && (
+            <span className="unavail-indicator" title="Delisted from user view">
+              Hidden from users
+            </span>
+          )}
         </div>
 
         <div className="vehicle-specs">
@@ -98,7 +103,7 @@ function VehicleCard({
                 type="button"
                 className={`btn btn-sm ${isAvailable ? 'btn-toggle-unavail' : 'btn-toggle-avail'}`}
                 onClick={() => onToggleAvailability && onToggleAvailability(_id)}
-                title={isAvailable ? 'Mark vehicle as Unavailable for rental' : 'Mark vehicle as Available for rental'}
+                title={isAvailable ? 'Mark vehicle as Unavailable (Hide from users)' : 'Mark vehicle as Available (Show to users)'}
               >
                 {isAvailable ? 'Set Unavailable' : 'Set Available'}
               </button>

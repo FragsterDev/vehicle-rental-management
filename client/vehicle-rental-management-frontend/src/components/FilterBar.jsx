@@ -8,9 +8,10 @@ function FilterBar({
   searchTerm,
   onSearchChange,
   onResetFilters,
+  isAdmin = false,
 }) {
   const vehicleTypes = ['All', 'Car', 'Bike', 'SUV', 'Truck', 'Van'];
-  const statusOptions = ['All', 'Available', 'Rented'];
+  const statusOptions = ['All', 'Available', 'Unavailable'];
 
   return (
     <div className="filter-bar">
@@ -42,21 +43,23 @@ function FilterBar({
         </select>
       </div>
 
-      <div className="filter-group">
-        <label htmlFor="status-filter">Status</label>
-        <select
-          id="status-filter"
-          value={selectedStatus}
-          onChange={(e) => onStatusChange(e.target.value)}
-          className="filter-select"
-        >
-          {statusOptions.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-      </div>
+      {isAdmin && (
+        <div className="filter-group">
+          <label htmlFor="status-filter">Fleet Status</label>
+          <select
+            id="status-filter"
+            value={selectedStatus}
+            onChange={(e) => onStatusChange(e.target.value)}
+            className="filter-select"
+          >
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <button className="btn btn-secondary" onClick={onResetFilters}>
         Reset

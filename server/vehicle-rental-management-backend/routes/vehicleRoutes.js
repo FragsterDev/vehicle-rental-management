@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Vehicle = require('../models/Vehicle');
-const { verifyToken, verifyAdmin } = require('../middleware/auth');
+const { verifyToken, verifyAdmin, optionalAuth } = require('../middleware/auth');
 
 // Helper to convert webpage/sharing links to direct image links
 const resolveImageUrl = async (rawUrl) => {
@@ -38,18 +38,26 @@ const resolveImageUrl = async (rawUrl) => {
   return url;
 };
 
-// 1. GET ALL VEHICLES (Public)
+// 1. GET ALL VEHICLES
 // Route: GET /api/vehicles
-router.get('/', async (req, res) => {
+// Behavior: Regular users & public visitors only receive available vehicles (hidden/unavailable are delisted).
+// Admins receive all vehicles and can filter by available/unavailable.
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const { type, available, search } = req.query;
     let filter = {};
 
+    const isAdmin = req.user && req.user.role === 'admin';
+
+    // If caller is NOT an admin, only show vehicles marked as available
+    if (!isAdmin) {
+      filter.isAvailable = true;
+    } else if (available !== undefined && available !== '' && available !== 'All') {
+      filter.isAvailable = available === 'true' || available === 'Available';
+    }
+
     if (type && type !== 'All') {
       filter.type = type;
-    }
-    if (available !== undefined && available !== '' && available !== 'All') {
-      filter.isAvailable = available === 'true' || available === 'Available';
     }
     if (search) {
       filter.$or = [
@@ -179,7 +187,9 @@ router.patch('/:id/toggle-availability', verifyToken, verifyAdmin, async (req, r
 
     res.status(200).json({
       success: true,
-      message: `Vehicle marked as ${vehicle.isAvailable ? 'available' : 'unavailable'} for rental.`,
+      message: vehicle.isAvailable
+        ? 'Vehicle is now available for rental.'
+        : 'Vehicle marked as unavailable (hidden from users).',
       data: vehicle,
     });
   } catch (error) {

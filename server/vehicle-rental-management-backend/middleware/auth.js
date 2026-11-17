@@ -26,4 +26,19 @@ const verifyAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { verifyToken, verifyAdmin };
+// Middleware to optionally attach user if valid token exists (for endpoints accessible to both guests and admins)
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vehiclerental_secret_key_2026');
+      req.user = decoded;
+    } catch (error) {
+      // Invalid/expired token - proceed as unauthenticated guest
+    }
+  }
+  next();
+};
+
+module.exports = { verifyToken, verifyAdmin, optionalAuth };

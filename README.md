@@ -23,7 +23,8 @@ A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle ren
 
 - **Authentication & Roles**: JWT-based authentication with bcrypt password hashing. Separate permissions and views for customers (`user`) and fleet managers (`admin`).
 - **Doorstep Vehicle Delivery**: Customers specify or confirm their delivery address during booking so the admin can deliver and dispatch the vehicle directly to their location.
-- **Fleet Inventory Management**: Admins can add new vehicles, edit existing vehicle specifications (specs, rates, image, and availability), toggle rental availability (Available / Unavailable) with 1 click, and delete vehicles from the fleet.
+- **Fleet Inventory Management**: Admins can add new vehicles, edit existing vehicle specifications (specs, rates, image, and availability), toggle rental availability (Available / Unavailable) to hide or delist vehicles from customer view, and delete vehicles from the fleet.
+- **Customer Catalog Visibility**: Regular users and public guests only see vehicles that are marked available. Vehicles marked unavailable by an admin (for maintenance, inspection, or delisting) are hidden from user browsing.
 - **Rental Booking & Pricing**: Select start and return dates with automatic calculation of rental duration and total price in Indian Rupees (`₹`).
 - **Simulated Payment Gateway**: Checkout flow supporting UPI, Debit/Credit Card, and Net Banking options, generating simulated order and payment IDs.
 - **24-Hour Grace Period & Overdue Charges**: Vehicles returned within 24 hours of the due date incur no penalty. If not returned within 24 hours, daily rental charges apply for every overdue day.
@@ -282,7 +283,7 @@ Admin clicks notification to view delivery drop-off details and jump to All Book
 ### 2. Vehicle Fleet Endpoints (`/vehicles`)
 | Method | Endpoint | Access | Body / Params | Description |
 |---|---|---|---|---|
-| `GET` | `/vehicles` | Public | Query: `?type=Car&available=true&search=wagon` | Lists all vehicles with optional filters |
+| `GET` | `/vehicles` | Public / Admin | Query: `?type=Car&available=true&search=wagon` | Lists available vehicles for users; lists all vehicles for Admins |
 | `GET` | `/vehicles/:id` | Public | Path: `:id` | Fetches details for a single vehicle |
 | `POST` | `/vehicles` | **Admin Only** | `{ make, name, regNumber, type, pricePerDay, image, fuelType, seatingCapacity, description }` | Adds a new vehicle (resolves image URL) |
 | `PUT` | `/vehicles/:id` | **Admin Only** | Updated fields in Body | Updates vehicle specifications and availability |

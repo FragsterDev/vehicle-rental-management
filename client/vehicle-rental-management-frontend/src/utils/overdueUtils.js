@@ -3,7 +3,7 @@
  * Policy: If the vehicle is not returned within 24 hours of the due date, overdue charges apply.
  */
 export const getOverdueDetails = (booking, vehicle = null) => {
-  if (!booking || !booking.returnDate) {
+  if (!booking || !booking.returnDate || booking.status === 'cancelled') {
     return {
       isOverdue: false,
       isPast24Hours: false,

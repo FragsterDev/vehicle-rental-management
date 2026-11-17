@@ -281,4 +281,70 @@ router.patch('/:id/return', verifyToken, async (req, res) => {
   }
 });
 
+// 5. CANCEL A BOOKING (ADMIN ONLY)
+// Route: PATCH /api/bookings/:id/cancel
+router.patch('/:id/cancel', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found.' });
+    }
+
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'This booking has already been cancelled.',
+      });
+    }
+
+    if (booking.status === 'returned') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot cancel a booking that has already been returned and completed.',
+      });
+    }
+
+    // Update booking status
+    booking.status = 'cancelled';
+    booking.paymentStatus = 'refunded';
+    await booking.save();
+
+    // Release vehicle back into the available fleet
+    const vehicle = await Vehicle.findById(booking.vehicle);
+    if (vehicle) {
+      vehicle.isAvailable = true;
+      await vehicle.save();
+    }
+
+    // Trigger Admin Notification for the cancellation
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        type: 'booking_returned',
+        title: 'Booking Cancelled',
+        message: `Booking for ${vehicle?.make || ''} ${vehicle?.name || 'Vehicle'} (${vehicle?.regNumber || 'N/A'}) was cancelled by Admin. Refund initiated.`,
+        booking: booking._id,
+        customerName: req.user?.name || 'Admin',
+        vehicleName: `${vehicle?.make || ''} ${vehicle?.name || ''}`,
+        deliveryAddress: booking.deliveryAddress || '',
+        isRead: false,
+      });
+    } catch (notifErr) {
+      console.error('Failed to create cancellation notification:', notifErr.message);
+    }
+
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate('vehicle')
+      .populate('user', 'name email phone address');
+
+    res.status(200).json({
+      success: true,
+      message: `Booking for ${vehicle ? `${vehicle.make} ${vehicle.name}` : 'vehicle'} has been cancelled and vehicle restored to available fleet.`,
+      data: populatedBooking,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error: ' + error.message });
+  }
+});
+
 module.exports = router;

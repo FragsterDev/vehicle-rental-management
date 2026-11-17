@@ -101,12 +101,13 @@ function MyRentals({ onReturnSuccess }) {
             <tbody>
               {rentals.map((rental) => {
                 const vehicle = rental.vehicle || {};
-                const overdueInfo = getOverdueDetails(rental, vehicle);
+                const isCancelled = rental.status === 'cancelled';
                 const isReturned = rental.status === 'returned';
+                const overdueInfo = getOverdueDetails(rental, vehicle);
                 const { isOverdue, isPast24Hours, overdueDays, overdueCharges, dailyRate } = overdueInfo;
 
                 return (
-                  <tr key={rental._id} className={isOverdue && isPast24Hours ? 'row-overdue' : ''}>
+                  <tr key={rental._id} className={!isCancelled && isOverdue && isPast24Hours ? 'row-overdue' : isCancelled ? 'row-cancelled' : ''}>
                     <td>
                       <strong>{vehicle.make} {vehicle.name}</strong>
                       <span className="subtext">{vehicle.type}</span>
@@ -115,7 +116,7 @@ function MyRentals({ onReturnSuccess }) {
                     <td>{new Date(rental.bookingDate || rental.createdAt).toLocaleDateString()}</td>
                     <td>
                       <div>{new Date(rental.returnDate).toLocaleDateString()}</div>
-                      {isOverdue && !isReturned && (
+                      {!isCancelled && isOverdue && !isReturned && (
                         <>
                           {isPast24Hours ? (
                             <span className="overdue-tag">
@@ -133,6 +134,11 @@ function MyRentals({ onReturnSuccess }) {
                           Returned {new Date(rental.actualReturnDate).toLocaleDateString()}
                         </span>
                       )}
+                      {isCancelled && (
+                        <span className="subtext text-muted">
+                          Cancelled by Admin
+                        </span>
+                      )}
                     </td>
                     <td style={{ maxWidth: '200px' }}>
                       <div className="address-display-cell" title={rental.deliveryAddress || rental.user?.address || 'Self Pickup'}>
@@ -144,12 +150,16 @@ function MyRentals({ onReturnSuccess }) {
                     <td>
                       <strong>₹{rental.totalPrice?.toLocaleString('en-IN')}</strong>
                       <span className="subtext">{rental.days} day(s)</span>
-                      <span className="payment-tag-paid">
-                        Paid: {rental.paymentMethod || 'UPI'}
-                      </span>
+                      {isCancelled ? (
+                        <span className="payment-tag-refunded">Refunded</span>
+                      ) : (
+                        <span className="payment-tag-paid">
+                          Paid: {rental.paymentMethod || 'UPI'}
+                        </span>
+                      )}
 
                       {/* Display Overdue Charges if not returned within 24 hours of due date */}
-                      {isOverdue && !isReturned && isPast24Hours && (
+                      {!isCancelled && isOverdue && !isReturned && isPast24Hours && (
                         <div className="overdue-charge-callout">
                           <span className="charge-title">Overdue Fee:</span>
                           <span className="charge-amount">₹{overdueCharges?.toLocaleString('en-IN')}</span>
@@ -158,7 +168,7 @@ function MyRentals({ onReturnSuccess }) {
                       )}
 
                       {/* If within 24 hours grace period */}
-                      {isOverdue && !isReturned && !isPast24Hours && (
+                      {!isCancelled && isOverdue && !isReturned && !isPast24Hours && (
                         <div className="grace-charge-callout">
                           <span>Grace active: ₹0 late fee</span>
                         </div>
@@ -173,17 +183,19 @@ function MyRentals({ onReturnSuccess }) {
                       )}
                     </td>
                     <td>
-                      {isOverdue && !isReturned && (
+                      {isCancelled ? (
+                        <span className="status-badge-inline status-cancelled">
+                          Cancelled
+                        </span>
+                      ) : isOverdue && !isReturned ? (
                         <span className={`status-badge-inline ${isPast24Hours ? 'status-overdue' : 'status-grace'}`}>
                           {isPast24Hours ? 'OVERDUE' : 'DUE (GRACE)'}
                         </span>
-                      )}
-                      {!isOverdue && !isReturned && (
+                      ) : !isOverdue && !isReturned ? (
                         <span className="status-badge-inline status-active">
                           Active
                         </span>
-                      )}
-                      {isReturned && (
+                      ) : (
                         <span className="status-badge-inline status-returned">
                           Returned
                         </span>
@@ -199,7 +211,7 @@ function MyRentals({ onReturnSuccess }) {
                         >
                           Invoice (PDF)
                         </button>
-                        {!isReturned ? (
+                        {!isReturned && !isCancelled && (
                           <button
                             className={`btn btn-outline-sm ${isPast24Hours ? 'btn-return-overdue' : ''}`}
                             disabled={actionLoading === rental._id}
@@ -207,8 +219,12 @@ function MyRentals({ onReturnSuccess }) {
                           >
                             {actionLoading === rental._id ? 'Returning...' : 'Return Vehicle'}
                           </button>
-                        ) : (
+                        )}
+                        {isReturned && (
                           <span className="text-muted" style={{ fontSize: '0.8rem', paddingLeft: '0.25rem' }}>Completed</span>
+                        )}
+                        {isCancelled && (
+                          <span className="text-muted" style={{ fontSize: '0.8rem', paddingLeft: '0.25rem' }}>Cancelled</span>
                         )}
                       </div>
                     </td>

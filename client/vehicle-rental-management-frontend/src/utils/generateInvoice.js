@@ -152,7 +152,10 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
   doc.setTextColor(51, 65, 85);
   doc.text(`Period: ${issueDate} to ${returnDateStr} (${daysCount} day(s))`, 110, metaY + 11);
   doc.text(`Payment ID: ${booking.paymentId || 'N/A'}`, 110, metaY + 15.5);
-  if (overdueCharge > 0) {
+  if (booking.status === 'cancelled') {
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Status: CANCELLED (Refund: ${booking.paymentMethod || 'UPI'})`, 110, metaY + 20);
+  } else if (overdueCharge > 0) {
     doc.setTextColor(185, 28, 28); // #b91c1c
     doc.text(`Status: OVERDUE (+${overdueDays}d late | +${formatINR(overdueCharge)})`, 110, metaY + 20);
   } else {

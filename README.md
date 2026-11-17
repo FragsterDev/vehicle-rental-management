@@ -28,6 +28,7 @@ A full-stack MERN (MongoDB, Express, React, Node.js) application for vehicle ren
 - **Rental Booking & Pricing**: Select start and return dates with automatic calculation of rental duration and total price in Indian Rupees (`₹`).
 - **Simulated Payment Gateway**: Checkout flow supporting UPI, Debit/Credit Card, and Net Banking options, generating simulated order and payment IDs.
 - **24-Hour Grace Period & Overdue Charges**: Vehicles returned within 24 hours of the due date incur no penalty. If not returned within 24 hours, daily rental charges apply for every overdue day.
+- **Admin Booking Cancellation**: Admins can cancel any active or overdue customer booking directly from the booking overview, automatically marking payment as refunded and restoring the vehicle to the available fleet.
 - **Admin In-App Notifications**: Notification bell in the navigation bar with an unread badge counter, alerting the admin when new bookings are placed or vehicles are returned.
 - **Itemized PDF Invoices**: Downloadable PDF tax invoice with customer delivery address, vehicle specs, GST breakdown, and itemized overdue charges.
 - **Minimalist UI**: Clean, responsive layout without emojis or clutter, including category filters and search.
@@ -297,6 +298,7 @@ Admin clicks notification to view delivery drop-off details and jump to All Book
 | `GET` | `/bookings/my-rentals` | Authenticated | Bearer Token | Returns logged-in user's rentals, delivery info & overdue fees |
 | `GET` | `/bookings` | **Admin Only** | Bearer Token | Returns all system bookings with delivery dispatch addresses |
 | `PATCH`| `/bookings/:id/return`| Authenticated | Path: `:id` | Returns vehicle, assesses overdue fee if > 24h late, restores fleet |
+| `PATCH`| `/bookings/:id/cancel`| **Admin Only** | Path: `:id` | Cancels booking, marks payment refunded, and releases vehicle back to fleet |
 
 ### 4. Notification Endpoints (`/notifications`)
 | Method | Endpoint | Access | Body / Params | Description |

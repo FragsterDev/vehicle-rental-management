@@ -100,6 +100,11 @@ export const returnVehicle = async (bookingId) => {
   return response.data;
 };
 
+export const cancelBooking = async (bookingId) => {
+  const response = await api.patch(`/bookings/${bookingId}/cancel`);
+  return response.data;
+};
+
 // NOTIFICATION SERVICES (ADMIN)
 export const getNotifications = async () => {
   const response = await api.get('/notifications');

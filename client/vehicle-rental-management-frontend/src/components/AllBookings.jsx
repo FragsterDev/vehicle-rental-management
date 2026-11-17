@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllBookings, returnVehicle } from '../services/api';
+import { getAllBookings, returnVehicle, cancelBooking } from '../services/api';
 import { generateInvoicePDF } from '../utils/generateInvoice';
 import { getOverdueDetails } from '../utils/overdueUtils';
 
@@ -34,6 +34,26 @@ function AllBookings({ onActionSuccess }) {
       fetchBookings();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update booking status.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAdminCancel = async (bookingId, vehicleName) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel the booking for ${vehicleName}? The vehicle will be released back into the available fleet.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(bookingId);
+      const res = await cancelBooking(bookingId);
+      if (onActionSuccess) {
+        onActionSuccess(res.message || `Cancelled booking for ${vehicleName}. Vehicle restored to fleet.`);
+      }
+      fetchBookings();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to cancel booking.');
     } finally {
       setActionLoading(null);
     }
@@ -101,13 +121,14 @@ function AllBookings({ onActionSuccess }) {
               {bookings.map((booking) => {
                 const user = booking.user || {};
                 const vehicle = booking.vehicle || {};
-                const overdueInfo = getOverdueDetails(booking, vehicle);
+                const isCancelled = booking.status === 'cancelled';
                 const isReturned = booking.status === 'returned';
+                const overdueInfo = getOverdueDetails(booking, vehicle);
                 const { isOverdue, isPast24Hours, overdueDays, overdueCharges, dailyRate } = overdueInfo;
                 const deliveryAddress = booking.deliveryAddress || user.address || 'Self Pickup / Counter';
 
                 return (
-                  <tr key={booking._id} className={isOverdue && isPast24Hours ? 'row-overdue' : ''}>
+                  <tr key={booking._id} className={!isCancelled && isOverdue && isPast24Hours ? 'row-overdue' : isCancelled ? 'row-cancelled' : ''}>
                     <td>
                       <strong>{user.name || 'Unknown'}</strong>
                       <span className="subtext">{user.email || 'N/A'}</span>
@@ -126,7 +147,7 @@ function AllBookings({ onActionSuccess }) {
                     <td>
                       <div><strong>From:</strong> {new Date(booking.bookingDate || booking.createdAt).toLocaleDateString()}</div>
                       <div><strong>Due:</strong> {new Date(booking.returnDate).toLocaleDateString()}</div>
-                      {isOverdue && !isReturned && (
+                      {!isCancelled && isOverdue && !isReturned && (
                         <>
                           {isPast24Hours ? (
                             <span className="overdue-tag">
@@ -144,16 +165,27 @@ function AllBookings({ onActionSuccess }) {
                           Returned on {new Date(booking.actualReturnDate).toLocaleDateString()}
                         </span>
                       )}
+                      {isCancelled && (
+                        <span className="subtext text-muted">
+                          Booking Cancelled
+                        </span>
+                      )}
                     </td>
                     <td>
                       <strong>₹{booking.totalPrice?.toLocaleString('en-IN')}</strong>
                       <span className="subtext">{booking.days} day(s)</span>
-                      <span className="payment-tag-paid">
-                        Paid: {booking.paymentMethod || 'UPI'}
-                      </span>
+                      {isCancelled ? (
+                        <span className="payment-tag-refunded">
+                          Refunded ({booking.paymentMethod || 'UPI'})
+                        </span>
+                      ) : (
+                        <span className="payment-tag-paid">
+                          Paid: {booking.paymentMethod || 'UPI'}
+                        </span>
+                      )}
 
                       {/* Display Overdue Fee if not returned within 24 hours */}
-                      {isOverdue && !isReturned && isPast24Hours && (
+                      {!isCancelled && isOverdue && !isReturned && isPast24Hours && (
                         <div className="overdue-charge-callout">
                           <span className="charge-title">Overdue Fee:</span>
                           <span className="charge-amount">₹{overdueCharges?.toLocaleString('en-IN')}</span>
@@ -162,7 +194,7 @@ function AllBookings({ onActionSuccess }) {
                       )}
 
                       {/* Within 24-hour grace window */}
-                      {isOverdue && !isReturned && !isPast24Hours && (
+                      {!isCancelled && isOverdue && !isReturned && !isPast24Hours && (
                         <div className="grace-charge-callout">
                           <span>Grace active: ₹0 late fee</span>
                         </div>
@@ -183,17 +215,19 @@ function AllBookings({ onActionSuccess }) {
                       )}
                     </td>
                     <td>
-                      {isOverdue && !isReturned && (
+                      {isCancelled ? (
+                        <span className="status-badge-inline status-cancelled">
+                          Cancelled
+                        </span>
+                      ) : isOverdue && !isReturned ? (
                         <span className={`status-badge-inline ${isPast24Hours ? 'status-overdue' : 'status-grace'}`}>
                           {isPast24Hours ? 'OVERDUE' : 'DUE (GRACE)'}
                         </span>
-                      )}
-                      {!isOverdue && !isReturned && (
+                      ) : !isOverdue && !isReturned ? (
                         <span className="status-badge-inline status-active">
                           Active
                         </span>
-                      )}
-                      {isReturned && (
+                      ) : (
                         <span className="status-badge-inline status-returned">
                           Returned
                         </span>
@@ -209,16 +243,31 @@ function AllBookings({ onActionSuccess }) {
                         >
                           Invoice (PDF)
                         </button>
-                        {!isReturned ? (
-                          <button
-                            className={`btn btn-outline-sm ${isPast24Hours ? 'btn-return-overdue' : ''}`}
-                            disabled={actionLoading === booking._id}
-                            onClick={() => handleAdminReturn(booking._id, `${vehicle.make} ${vehicle.name}`)}
-                          >
-                            {actionLoading === booking._id ? 'Updating...' : 'Mark Returned'}
-                          </button>
-                        ) : (
+                        {!isReturned && !isCancelled && (
+                          <>
+                            <button
+                              className={`btn btn-outline-sm ${isPast24Hours ? 'btn-return-overdue' : ''}`}
+                              disabled={actionLoading === booking._id}
+                              onClick={() => handleAdminReturn(booking._id, `${vehicle.make} ${vehicle.name}`)}
+                            >
+                              {actionLoading === booking._id ? 'Updating...' : 'Mark Returned'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-cancel-sm"
+                              disabled={actionLoading === booking._id}
+                              onClick={() => handleAdminCancel(booking._id, `${vehicle.make} ${vehicle.name}`)}
+                              title="Cancel booking and restore vehicle to fleet"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {isReturned && (
                           <span className="text-muted" style={{ fontSize: '0.8rem', paddingLeft: '0.25rem' }}>Completed</span>
+                        )}
+                        {isCancelled && (
+                          <span className="text-muted" style={{ fontSize: '0.8rem', paddingLeft: '0.25rem' }}>Refunded</span>
                         )}
                       </div>
                     </td>

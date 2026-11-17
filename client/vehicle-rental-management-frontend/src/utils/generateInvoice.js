@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { getOverdueDetails } from './overdueUtils';
 
 // Helper to format currency in Indian Rupees
 const formatINR = (amount) => {
@@ -135,21 +136,33 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
   doc.setTextColor(15, 23, 42);
   doc.text(`${vehicle.make || ''} ${vehicle.name || 'Vehicle'} (${vehicle.regNumber || 'N/A'})`, 110, metaY + 6);
 
+  // Calculate overdue details & charges if applicable
+  const overdueInfo = getOverdueDetails(booking, vehicle);
+  const isOverdueLate = overdueInfo.isOverdue && overdueInfo.isPast24Hours;
+  const overdueDays = overdueInfo.overdueDays || 0;
+  const overdueDailyRate = vehicle.pricePerDay || overdueInfo.dailyRate || (booking.totalPrice && daysCount ? Math.round(booking.totalPrice / daysCount) : 0);
+  const overdueCharge = isOverdueLate
+    ? (booking.overdueFee && booking.overdueFee > 0 ? booking.overdueFee : overdueDays * overdueDailyRate)
+    : (booking.overdueFee || 0);
+
+  const grandTotal = totalAmount + overdueCharge;
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(`Period: ${issueDate} to ${returnDateStr} (${daysCount} day(s))`, 110, metaY + 11);
   doc.text(`Payment ID: ${booking.paymentId || 'N/A'}`, 110, metaY + 15.5);
-  doc.text(`Order ID: ${booking.orderId || 'N/A'} | Status: PAID (${booking.paymentMethod || 'UPI'})`, 110, metaY + 20);
+  if (overdueCharge > 0) {
+    doc.setTextColor(185, 28, 28); // #b91c1c
+    doc.text(`Status: OVERDUE (+${overdueDays}d late | +${formatINR(overdueCharge)})`, 110, metaY + 20);
+  } else {
+    doc.text(`Order ID: ${booking.orderId || 'N/A'} | Status: PAID (${booking.paymentMethod || 'UPI'})`, 110, metaY + 20);
+  }
 
   // Divider before items table
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
   doc.line(14, metaY + 26, 196, metaY + 26);
-
-  // Calculate overdue charges if applicable
-  const overdueCharge = Number(booking.overdueFee || 0);
-  const grandTotal = totalAmount + overdueCharge;
 
   const tableBody = [
     [
@@ -164,21 +177,29 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
 
   if (overdueCharge > 0) {
     tableBody.push([
-      'Overdue Charges (Returned past 24-hour grace period)',
-      '-',
-      '-',
+      `Overdue Charge (Vehicle not returned within 24h grace period)\nPolicy: Charged at daily rate of ${formatINR(overdueDailyRate)} per late day (${overdueDays} day(s) late)`,
+      formatINR(overdueDailyRate),
+      `${overdueDays}`,
       formatINR(overdueCharge),
     ]);
   }
+
+  const tableFoot = overdueCharge > 0
+    ? [
+        ['Initial Rental Fee (Paid)', '', '', formatINR(totalAmount)],
+        ['Overdue Charge Added (Late Return)', '', '', `+ ${formatINR(overdueCharge)}`],
+        ['Total Net Amount Billed', '', '', formatINR(grandTotal)],
+      ]
+    : [
+        ['Total Paid in Full', '', '', formatINR(totalAmount)],
+      ];
 
   // --- MINIMALIST ITEMIZATION TABLE ---
   autoTable(doc, {
     startY: metaY + 30,
     head: [['Description', 'Rate / Day', 'Days', 'Amount']],
     body: tableBody,
-    foot: [
-      ['Total Paid in Full', '', '', formatINR(grandTotal)],
-    ],
+    foot: tableFoot,
     theme: 'plain',
     headStyles: {
       textColor: [15, 23, 42],
@@ -197,9 +218,9 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
     },
     footStyles: {
       textColor: [15, 23, 42],
-      fontSize: 10,
+      fontSize: 9.5,
       fontStyle: 'bold',
-      cellPadding: { top: 5, bottom: 5, left: 0, right: 0 },
+      cellPadding: { top: 4, bottom: 4, left: 0, right: 0 },
       lineWidth: { top: 0.3 },
       lineColor: [15, 23, 42],
     },
@@ -217,16 +238,25 @@ export const generateInvoicePDF = (booking, vehicleOverride = null, userOverride
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
-  doc.text('PAYMENT RECEIPT CONFIRMATION', 14, finalY);
+  doc.text('PAYMENT RECEIPT & BILLING CONFIRMATION', 14, finalY);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(
-    `Received payment of ${formatINR(totalAmount)} via ${booking.paymentMethod || 'UPI'}. Transaction Reference: ${booking.paymentId || 'N/A'}.`,
-    14,
-    finalY + 5
-  );
+
+  if (overdueCharge > 0) {
+    doc.text(
+      `Initial Booking Paid: ${formatINR(totalAmount)} via ${booking.paymentMethod || 'UPI'}. Overdue Penalty Added: ${formatINR(overdueCharge)} (${overdueDays} day(s) late @ ${formatINR(overdueDailyRate)}/day). Ref: ${booking.paymentId || 'N/A'}.`,
+      14,
+      finalY + 5
+    );
+  } else {
+    doc.text(
+      `Received payment of ${formatINR(totalAmount)} via ${booking.paymentMethod || 'UPI'}. Transaction Reference: ${booking.paymentId || 'N/A'}.`,
+      14,
+      finalY + 5
+    );
+  }
 
   doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.2);
